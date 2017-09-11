@@ -85,7 +85,10 @@ void Mixer::mix(int8 *buf, int len) {
 	MutexStack(_stub, _mutex);
 	memset(buf, 0, len);
 	if (_premixHook) {
-		_premixHook(_premixHookData, buf, len);
+		if (!_premixHook(_premixHookData, buf, len)) {
+			_premixHook = 0;
+			_premixHookData = 0;
+		}
 	}
 	for (uint8 i = 0; i < NUM_CHANNELS; ++i) {
 		MixerChannel *ch = &_channels[i];
@@ -114,8 +117,7 @@ void Mixer::addclamp(int8& a, int b) {
 	int add = a + b;
 	if (add < -128) {
 		add = -128;
-	}
-	else if (add > 127) {
+	} else if (add > 127) {
 		add = 127;
 	}
 	a = add;

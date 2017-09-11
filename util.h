@@ -32,7 +32,8 @@ enum {
 	DBG_COL    = 1 << 7,
 	DBG_SND    = 1 << 8,
 	DBG_CUT    = 1 << 9,
-	DBG_MOD    = 1 << 10
+	DBG_MOD    = 1 << 10,
+	DBG_SFX    = 1 << 11
 };
 
 extern uint16 g_debugMask;

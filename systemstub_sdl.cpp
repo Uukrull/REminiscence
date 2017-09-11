@@ -417,6 +417,7 @@ void SystemStub_SDL::processEvents() {
 				break;
 			case SDLK_ESCAPE:
 				_pi.escape = true;
+				break;
 			default:
 				break;
 			}
@@ -438,7 +439,6 @@ uint32 SystemStub_SDL::getTimeStamp() {
 void SystemStub_SDL::startAudio(AudioCallback callback, void *param) {
 	SDL_AudioSpec desired;
 	memset(&desired, 0, sizeof(desired));
-
 	desired.freq = SOUND_SAMPLE_RATE;
 	desired.format = AUDIO_S8;
 	desired.channels = 1;
@@ -482,11 +482,8 @@ void SystemStub_SDL::prepareGfxMode() {
 	if (!_screen) {
 		error("SystemStub_SDL::prepareGfxMode() unable to allocate _screen buffer");
 	}
-	_sclscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16,
-						_screen->format->Rmask,
-						_screen->format->Gmask,
-						_screen->format->Bmask,
-						_screen->format->Amask);
+	const SDL_PixelFormat *pf = _screen->format;
+	_sclscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16, pf->Rmask, pf->Gmask, pf->Bmask, pf->Amask);
 	if (!_sclscreen) {
 		error("SystemStub_SDL::prepareGfxMode() unable to allocate _sclscreen buffer");
 	}
@@ -494,7 +491,7 @@ void SystemStub_SDL::prepareGfxMode() {
 	_blitRects[0].x = 0;
 	_blitRects[0].y = 0;
 	_blitRects[0].w = _screenW;
-	_blitRects[0].h = _screenH;	
+	_blitRects[0].h = _screenH;
 }
 
 void SystemStub_SDL::cleanupGfxMode() {

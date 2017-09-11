@@ -68,7 +68,7 @@ int Game::pge_isInGroup(LivePGE *pge_dst, uint16 group_id, uint16 counter) {
 }
 
 void Game::pge_loadForCurrentLevel(uint16 idx) {
-	debug(DBG_PGE, "Game::pge_loadForCurrentLevel() idx = %d", idx);
+	debug(DBG_PGE, "Game::pge_loadForCurrentLevel() idx=%d", idx);
 
 	LivePGE *live_pge = &_pgeLive[idx];
 	InitPGE *init_pge = &_res._pgeInit[idx];
@@ -125,7 +125,7 @@ void Game::pge_loadForCurrentLevel(uint16 idx) {
 }
 
 void Game::pge_process(LivePGE *pge) {
-	debug(DBG_PGE, "Game::pge_process() pge_num = %d", pge - &_pgeLive[0]);
+	debug(DBG_PGE, "Game::pge_process() pge_num=%d", pge - &_pgeLive[0]);
 	_pge_playAnimSound = true;
 	_pge_currentPiegeFacingDir = 0;
 	if (pge->flags & 1) {
@@ -174,25 +174,25 @@ void Game::pge_setupNextAnimFrame(LivePGE *pge, GroupPGE *le) {
 	while (i < on->last_obj_number && pge->obj_type == obj->type) {
 		GroupPGE *next_le = le;
 		while (next_le) {
-			uint16 _ax = next_le->group_id;
-			if (obj->opcode2 == 0x6B) {
+			uint16 groupId = next_le->group_id;
+			if (obj->opcode2 == 0x6B) { // pge_op_isInGroupSlice
 				if (obj->opcode_arg2 == 0) {
-					if (_ax == 1 || _ax == 2) goto set_anim;
+					if (groupId == 1 || groupId == 2) goto set_anim;
 				}
 				if (obj->opcode_arg2 == 1) {
-					if (_ax == 3 || _ax == 4) goto set_anim;
+					if (groupId == 3 || groupId == 4) goto set_anim;
 				}
-			} else if (_ax == obj->opcode_arg2) {
+			} else if (groupId == obj->opcode_arg2) {
 				if (obj->opcode2 == 0x22 || obj->opcode2 == 0x6F) goto set_anim;
 			}
-			if (obj->opcode1 == 0x6B) {
+			if (obj->opcode1 == 0x6B) { // pge_op_isInGroupSlice
 				if (obj->opcode_arg1 == 0) {
-					if (_ax == 1 || _ax == 2) goto set_anim;
+					if (groupId == 1 || groupId == 2) goto set_anim;
 				}
 				if (obj->opcode_arg1 == 1) {
-					if (_ax == 3 || _ax == 4) goto set_anim;
+					if (groupId == 3 || groupId == 4) goto set_anim;
 				}
-			} else if (_ax == obj->opcode_arg1) {
+			} else if (groupId == obj->opcode_arg1) {
 				if (obj->opcode1 == 0x22 || obj->opcode1 == 0x6F) goto set_anim;
 			}
 			next_le = next_le->next_entry;
@@ -241,7 +241,7 @@ void Game::pge_playAnimSound(LivePGE *pge, uint16 arg2) {
 }
 
 void Game::pge_setupAnim(LivePGE *pge) {
-	debug(DBG_PGE, "Game::pge_setupAnim() pgeNum = %d", pge - &_pgeLive[0]);
+	debug(DBG_PGE, "Game::pge_setupAnim() pgeNum=%d", pge - &_pgeLive[0]);
 	const uint8 *anim_data = _res._ani + READ_LE_UINT16(_res._ani + pge->obj_type * 2);
 	if (anim_data[0] < pge->anim_seq) {
 		pge->anim_seq = 0;
@@ -269,14 +269,14 @@ void Game::pge_setupAnim(LivePGE *pge) {
 }
 
 int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {	
-	debug(DBG_PGE, "Game::pge_execute() pge_num = %d op1=0x%X op2=0x%X op3=0x%X", live_pge - &_pgeLive[0], obj->opcode1, obj->opcode2, obj->opcode3);
+	debug(DBG_PGE, "Game::pge_execute() pge_num=%d op1=0x%X op2=0x%X op3=0x%X", live_pge - &_pgeLive[0], obj->opcode1, obj->opcode2, obj->opcode3);
 	pge_OpcodeProc op;
 	ObjectOpcodeArgs args;
 	if (obj->opcode1) {
 		args.pge = live_pge;
 		args.a = obj->opcode_arg1;
 		args.b = 0;
-		debug(DBG_PGE, "pge_execute op = 0x%X", obj->opcode1);
+		debug(DBG_PGE, "pge_execute op=0x%X", obj->opcode1);
 		op = _pge_opcodeTable[obj->opcode1];
 		if (!op) {
 			warning("Game::pge_execute() missing call to pge_opcode 0x%X", obj->opcode1);
@@ -288,8 +288,8 @@ int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {
 	if (obj->opcode2) {
 		args.pge = live_pge;
 		args.a = obj->opcode_arg2;
-		args.b = obj->opcode_arg1;		
-		debug(DBG_PGE, "pge_execute op = 0x%X", obj->opcode2);
+		args.b = obj->opcode_arg1;
+		debug(DBG_PGE, "pge_execute op=0x%X", obj->opcode2);
 		op = _pge_opcodeTable[obj->opcode2];
 		if (!op) {
 			warning("Game::pge_execute() missing call to pge_opcode 0x%X", obj->opcode2);
@@ -302,7 +302,7 @@ int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {
 		args.pge = live_pge;
 		args.a = obj->opcode_arg3;
 		args.b = 0;
-		debug(DBG_PGE, "pge_execute op = 0x%X", obj->opcode3);
+		debug(DBG_PGE, "pge_execute op=0x%X", obj->opcode3);
 		op = _pge_opcodeTable[obj->opcode3];
 		if (op) {
 			(this->*op)(&args);
@@ -950,11 +950,11 @@ int Game::pge_op_isInpMod(ObjectOpcodeArgs *args) {
 	}
 }
 
-int Game::pge_o_unk0x36(ObjectOpcodeArgs *args) {
+int Game::pge_op_setCollisionState1(ObjectOpcodeArgs *args) {
 	return pge_updateCollisionState(args->pge, args->a, 1);
 }
 
-int Game::pge_o_unk0x37(ObjectOpcodeArgs *args) {
+int Game::pge_op_setCollisionState0(ObjectOpcodeArgs *args) {
 	return pge_updateCollisionState(args->pge, args->a, 0);
 }
 
@@ -1419,14 +1419,13 @@ int Game::pge_o_unk0x67(ObjectOpcodeArgs *args) {
 	return 0;
 }
 
-int Game::pge_o_unk0x68(ObjectOpcodeArgs *args) {
+int Game::pge_op_setCollisionState2(ObjectOpcodeArgs *args) {
 	return pge_updateCollisionState(args->pge, args->a, 2);
 }
 
 int Game::pge_op_saveState(ObjectOpcodeArgs *args) {
 	_saveStateCompleted = true;
-	_validSaveState = true;
-	saveGameState(0);
+	_validSaveState = saveGameState(0);
 	return 0xFFFF;
 }
 

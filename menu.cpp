@@ -24,7 +24,7 @@
 #include "menu.h"
 
 
-Menu::Menu(Locale *loc, Player *ply, Resource *res, SystemStub *stub, Video *vid)
+Menu::Menu(Locale *loc, ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid)
 	: _loc(loc), _ply(ply), _res(res), _stub(stub), _vid(vid) {
 }
 
@@ -105,7 +105,7 @@ void Menu::handleInfoScreen() {
 	case VER_FR:
 		loadPicture("instru_f");
 		break;
-	case VER_US:
+	case VER_EN:
 	case VER_DE:
 	case VER_SP:
 		loadPicture("instru_e");
@@ -188,14 +188,18 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
-		
 		char c = _stub->_pi.lastChar;
-		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-			if (len < 6) {
-				password[len] = c & ~0x20;
-				++len;
-			}
+		if (c != 0) {
 			_stub->_pi.lastChar = 0;
+			if (len < 6) {
+				if (c >= 'a' && c <= 'z') {
+					c &= ~0x20;
+				}
+				if ((c >= 'A' && c <= 'Z') || (c == 0x20)) {
+					password[len] = c;
+					++len;
+				}
+			}
 		}
 		if (_stub->_pi.backspace) {
 			_stub->_pi.backspace = false;
@@ -226,12 +230,13 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 	bool quit_loop = false;
 	int menu_entry = 0;
 	bool reinit_screen = true;
+	bool continue_game = true;
 	_charVar1 = 0;
 	_charVar2 = 0;
 	_charVar3 = 0;
 	_charVar4 = 0;
 	_charVar5 = 0;
-	_ply->startSong(1);
+	_ply->play(1);
 	while (!quit_loop) {
 		if (reinit_screen) {
 			_vid->fadeOut();
@@ -295,14 +300,17 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 				reinit_screen = true;
 				break;
 			case MENU_OPTION_ITEM_QUIT:
-				return false;
+				continue_game = false;
+				quit_loop = true;
 				break;
 			}
 		}
 		if (_stub->_pi.quit) {
-			return false;
+			continue_game = false;
+			quit_loop = true;
+			break;
 		}
 	}
-	_ply->stopSong();
-	return true;
+	_ply->stop();
+	return continue_game;
 }

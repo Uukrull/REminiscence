@@ -24,12 +24,16 @@
 Video::Video(Resource *res, SystemStub *stub)
 	: _res(res), _stub(stub) {
 	_frontLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	memset(_frontLayer, 0, GAMESCREEN_W * GAMESCREEN_H);
 	_backLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	memset(_backLayer, 0, GAMESCREEN_W * GAMESCREEN_H);
 	_tempLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	memset(_tempLayer, 0, GAMESCREEN_W * GAMESCREEN_H);
 	_tempLayer2 = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	memset(_tempLayer2, 0, GAMESCREEN_W * GAMESCREEN_H);
 	_screenBlocks = (uint8 *)malloc((GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
-	_fullRefresh = true;
 	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
+	_fullRefresh = true;
 	_shakeOffset = 0;
 	_charFrontColor = 0;
 	_charTransparentColor = 0;

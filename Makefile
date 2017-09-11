@@ -2,7 +2,7 @@
 SDL_CFLAGS = `sdl-config --cflags`
 SDL_LIBS = `sdl-config --libs`
 
-DEFINES = -DSYS_LITTLE_ENDIAN
+DEFINES = -DSYS_LITTLE_ENDIAN -DBYPASS_PROTECTION
 
 CXX = g++
 CXXFLAGS:= -g -O -Wall -Wuninitialized -Wno-unknown-pragmas -Wshadow -Wimplicit
@@ -11,7 +11,7 @@ CXXFLAGS+= $(SDL_CFLAGS) $(DEFINES)
 
 SRCS = collision.cpp cutscene.cpp file.cpp game.cpp graphics.cpp locale.cpp \
 	main.cpp menu.cpp mixer.cpp mod_player.cpp piege.cpp resource.cpp scaler.cpp \
-	staticres.cpp systemstub_sdl.cpp unpack.cpp util.cpp video.cpp
+	sfx_player.cpp staticres.cpp systemstub_sdl.cpp unpack.cpp util.cpp video.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 DEPS = $(SRCS:.cpp=.d)

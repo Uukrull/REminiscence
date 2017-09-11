@@ -26,6 +26,7 @@
 #include "mixer.h"
 #include "mod_player.h"
 #include "resource.h"
+#include "sfx_player.h"
 #include "video.h"
 
 struct File;
@@ -58,13 +59,16 @@ struct Game {
 	static const char *_monsterNames[];
 	static const pge_OpcodeProc _pge_opcodeTable[];
 	static const uint8 _pge_modKeysTable[];
+	static const uint8 _protectionCodeData[];
+	static const uint8 _protectionPal[];
 	
 	Cutscene _cut;
 	Locale _loc;
 	Menu _menu;
 	Mixer _mix;
-	Player _ply;
+	ModPlayer _modPly;
 	Resource _res;
+	SfxPlayer _sfxPly;
 	Video _vid;
 	SystemStub *_stub;
 	const char *_savePath;
@@ -113,6 +117,7 @@ struct Game {
 	void showFinalScore();
 	bool handleConfigPanel();
 	bool handleContinueAbort();
+	bool handleProtectionScreen();
 	void printSaveStateCompleted();
 	void drawLevelTexts();
 	void drawStoryTexts();
@@ -129,7 +134,7 @@ struct Game {
 	void playSound(uint8 sfxId, uint8 softVol);
 	uint16 getRandomNumber();
 	void changeLevel();
-	uint16 getLineLength(const uint8 *str);
+	uint16 getLineLength(const uint8 *str) const;
 	void handleInventory();
 	uint8 *findBankData(uint16 entryNum);
 
@@ -219,8 +224,8 @@ struct Game {
 	int pge_op_removeItemFromInventory(ObjectOpcodeArgs *args);
 	int pge_o_unk0x34(ObjectOpcodeArgs *args);
 	int pge_op_isInpMod(ObjectOpcodeArgs *args);
-	int pge_o_unk0x36(ObjectOpcodeArgs *args);
-	int pge_o_unk0x37(ObjectOpcodeArgs *args);
+	int pge_op_setCollisionState1(ObjectOpcodeArgs *args);
+	int pge_op_setCollisionState0(ObjectOpcodeArgs *args);
 	int pge_op_isInGroup1(ObjectOpcodeArgs *args);
 	int pge_op_isInGroup2(ObjectOpcodeArgs *args);
 	int pge_op_isInGroup3(ObjectOpcodeArgs *args);
@@ -268,7 +273,7 @@ struct Game {
 	int pge_op_addToCredits(ObjectOpcodeArgs *args);
 	int pge_op_subFromCredits(ObjectOpcodeArgs *args);
 	int pge_o_unk0x67(ObjectOpcodeArgs *args);
-	int pge_o_unk0x68(ObjectOpcodeArgs *args);
+	int pge_op_setCollisionState2(ObjectOpcodeArgs *args);
 	int pge_op_saveState(ObjectOpcodeArgs *args);
 	int pge_o_unk0x6A(ObjectOpcodeArgs *args);
 	int pge_op_isInGroupSlice(ObjectOpcodeArgs *args);
@@ -375,8 +380,8 @@ struct Game {
 	
 	void makeGameDemoName(char *buf);
 	void makeGameStateName(uint8 slot, char *buf);
-	void saveGameState(uint8 slot);
-	void loadGameState(uint8 slot);
+	bool saveGameState(uint8 slot);
+	bool loadGameState(uint8 slot);
 	void saveState(File *f);
 	void loadState(File *f);	
 };

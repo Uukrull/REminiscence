@@ -25,12 +25,13 @@
 
 static uint16 _cosTable[360], _sinTable[360];
 
-Cutscene::Cutscene(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
+Cutscene::Cutscene(ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
 	: _ply(ply), _res(res), _stub(stub), _vid(vid), _ver(ver) {
 	for (int i = 0; i < 360; ++i) {
 		_cosTable[i] = (uint16)(cos(i * M_PI / 180) * 256);
 		_sinTable[i] = (uint16)(sin(i * M_PI / 180) * 256);
 	}
+	memset(_palBuf, 0, sizeof(_palBuf));
 }
 
 void Cutscene::sync() {
@@ -214,6 +215,44 @@ void Cutscene::drawCreditsText() {
 	}
 }
 
+void Cutscene::drawProtectionShape(uint8 shapeNum, int16 zoom) {
+	debug(DBG_CUT, "Cutscene::drawProtectionShape() shapeNum = %d", shapeNum);
+	_shape_ix = 64;
+	_shape_iy = 64;
+	_shape_unk_x = 0;
+	_shape_unk_y = 0;
+	_shape_count = 0;
+
+	int16 x = 0;
+	int16 y = 0;
+	zoom += 512;
+	initRotationData(0, 180, 90);
+
+	const uint8 *shapeOffsetTable    = _protectionShapeData + READ_BE_UINT16(_protectionShapeData + 0x02);
+	const uint8 *shapeDataTable      = _protectionShapeData + READ_BE_UINT16(_protectionShapeData + 0x0E);
+	const uint8 *verticesOffsetTable = _protectionShapeData + READ_BE_UINT16(_protectionShapeData + 0x0A);
+	const uint8 *verticesDataTable   = _protectionShapeData + READ_BE_UINT16(_protectionShapeData + 0x12);
+
+	++shapeNum;
+	const uint8 *shapeData = shapeDataTable + READ_BE_UINT16(shapeOffsetTable + (shapeNum & 0x7FF) * 2);
+	uint16 primitiveCount = READ_BE_UINT16(shapeData); shapeData += 2;
+
+	while (primitiveCount--) {
+		uint16 verticesOffset = READ_BE_UINT16(shapeData); shapeData += 2;
+		const uint8 *p = verticesDataTable + READ_BE_UINT16(verticesOffsetTable + (verticesOffset & 0x3FFF) * 2);
+		int16 dx = 0;
+		int16 dy = 0;
+		if (verticesOffset & 0x8000) {
+			dx = READ_BE_UINT16(shapeData); shapeData += 2;
+			dy = READ_BE_UINT16(shapeData); shapeData += 2;
+		}
+		_hasAlphaColor = (verticesOffset & 0x4000) != 0;
+		_primitiveColor = 0xC0 + *shapeData++;
+		op_drawShape2Helper(p, zoom, dx, dy, x, y, 0, 0);
+		++_shape_count;
+	}
+}
+
 void Cutscene::op_markCurPos() {
 	debug(DBG_CUT, "Cutscene::op_markCurPos()");
 	_cmdPtrBak = _cmdPtr;
@@ -329,7 +368,7 @@ void Cutscene::op_drawShape0() {
 		_hasAlphaColor = (verticesOffset & 0x4000) != 0;
 		uint8 color = *shapeData++;
 		if (_clearScreen == 0) {
-			color += 0x10; // 2nd pal buf
+			color += 0x10;
 		}
 		_primitiveColor = 0xC0 + color;
 		op_drawShape0Helper(primitiveVertices, x + dx, y + dy);
@@ -618,7 +657,7 @@ void Cutscene::op_drawShape2Helper(const uint8 *data, int16 zoom, int16 b, int16
 		po.x = _vertices[0].x + d + _shape_ix;
 		po.y = _vertices[0].y + e + _shape_iy;
 		int16 rx = _vertices[0].x - _vertices[2].x;
-		int16 ry = _vertices[0].y - _vertices[1].y;		
+		int16 ry = _vertices[0].y - _vertices[1].y;
 		_gfx.drawEllipse(_primitiveColor, _hasAlphaColor, &po, rx, ry);
 	} else if (numVertices == 0) {
 		Point pt;
@@ -887,7 +926,7 @@ void Cutscene::mainLoop(uint16 offset) {
 		_stub->setPaletteEntry(0xC0 + i, &c);
 	}
 	if (_id != 0x4A && !_creditsSequence) {
-		_ply->startSong(_musicTable[_id]);
+		_ply->play(_musicTable[_id]);
 	}
 	_newPal = false;
 	_hasAlphaColor = false;
@@ -919,7 +958,7 @@ void Cutscene::mainLoop(uint16 offset) {
 		}
 	}
 	if (_interrupted || _id != 0x0D) {
-		_ply->stopSong();
+		_ply->stop();
 	}
 }
 
@@ -932,7 +971,7 @@ void Cutscene::load(uint16 cutName) {
 	case VER_FR:
 		_res->load_CINE("FR_CINE");
 		break;
-	case VER_US:
+	case VER_EN:
 		_res->load_CINE("ENGCINE");
 		break;
 	case VER_DE:
@@ -954,6 +993,7 @@ void Cutscene::prepare() {
 	_stub->_pi.shift = false;
 	_interrupted = false;
 	_stop = false;
+	_gfx.setClippingRect(8, 50, 240, 128);
 }
 
 void Cutscene::startCredits() {

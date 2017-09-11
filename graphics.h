@@ -24,7 +24,9 @@
 struct Graphics {		
 	uint8 *_layer;
 	int16 _areaPoints[0x200];
+	int16 _crx, _cry, _crw, _crh;
 	
+	void setClippingRect(int16 vx, int16 vy, int16 vw, int16 vh);
 	void drawPoint(uint8 color, const Point *pt);
 	void drawLine(uint8 color, const Point *pt1, const Point *pt2);
 	void addEllipseRadius(int16 y, int16 x1, int16 x2);

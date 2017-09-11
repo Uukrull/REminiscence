@@ -21,9 +21,10 @@
 
 #include "intern.h"
 
+struct File;
 struct Mixer;
 
-struct Player {
+struct ModPlayer {
 	enum {
 		NUM_SAMPLES = 31,
 		NUM_TRACKS = 4,
@@ -69,7 +70,8 @@ struct Player {
 	};
 	
 	static const uint16 _periodTable[];
-	static const char *_moduleFiles[];
+	static const char *_modulesFiles[];
+	static const int _modulesCount;
 	
 	ModuleInfo _modInfo;
 	uint8 _currentPatternOrder;
@@ -87,13 +89,12 @@ struct Player {
 	Mixer *_mix;
 	const char *_dataPath;
 	
-	Player(Mixer *mixer, const char *dataPath);
+	ModPlayer(Mixer *mixer, const char *dataPath);
 
-	void startSong(uint8 songNum);
-	void stopSong();
 	uint16 findPeriod(uint16 period, uint8 fineTune) const;
-	void loadModule(const char *filename, const char *directory);
-	void start();
+	void load(File *f);
+	void unload();
+	void play(uint8 num);
 	void stop();
 	void handleNote(int trackNum, uint32 noteData);
 	void handleTick();
@@ -102,9 +103,9 @@ struct Player {
 	void applyPortamento(int trackNum);
 	void handleEffect(int trackNum, bool tick);
 	void mixSamples(int8 *buf, int len);
-	void mix(int8 *buf, int len);
+	bool mix(int8 *buf, int len);
 
-	static void mixCallback(void *param, int8 *buf, int len);
+	static bool mixCallback(void *param, int8 *buf, int len);
 };
 
 #endif // __MOD_PLAYER_H__

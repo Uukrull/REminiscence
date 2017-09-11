@@ -19,10 +19,18 @@
 #include "graphics.h"
 
 
+void Graphics::setClippingRect(int16 rx, int16 ry, int16 rw, int16 rh) {
+	debug(DBG_VIDEO, "Graphics::setClippingRect(%d, %d, %d, %d)", rx, ry, rw, rh);
+	_crx = rx;
+	_cry = ry;
+	_crw = rw;
+	_crh = rh;
+}
+
 void Graphics::drawPoint(uint8 color, const Point *pt) {
 	debug(DBG_VIDEO, "Graphics::drawPoint() col=0x%X x=%d, y=%d", color, pt->x, pt->y);
-	if (pt->x >= 0 && pt->x < 240 && pt->y >= 0 && pt->y < 128) {
-		*(_layer + pt->y * 256 + pt->x + 12808) = color;
+	if (pt->x >= 0 && pt->x < _crw && pt->y >= 0 && pt->y < _crh) {
+		*(_layer + (pt->y + _cry) * 256 + pt->x + _crx) = color;
 	}
 }
 
@@ -83,13 +91,13 @@ void Graphics::drawLine(uint8 color, const Point *pt1, const Point *pt2) {
 
 void Graphics::addEllipseRadius(int16 y, int16 x1, int16 x2) {
 	debug(DBG_VIDEO, "Graphics::addEllipseRadius()");
-	if (y >= 0 && y <= 128) { 
+	if (y >= 0 && y <= _crh) { 
 		y = (y - _areaPoints[0]) * 2;
 		if (x1 < 0) {
 			x1 = 0;
 		}
-		if (x2 >= 240) {
-			x2 = 239;
+		if (x2 >= _crw) {
+			x2 = _crw - 1;
 		}
 		_areaPoints[y + 1] = x1;
 		_areaPoints[y + 2] = x2;
@@ -103,7 +111,7 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 	if (y < 0) {
 		y = 0;
 	}
-	if (y < 128) {
+	if (y < _crh) {
 		if (pt->y + ry >= 0) {
 			_areaPoints[0] = y;
 			int32 dy = 0;
@@ -192,8 +200,8 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 				++dy;
 			}
 			y = pt->y + ry + 1;
-			if (y > 128) {
-				y = 128;
+			if (y > _crh) {
+				y = _crh;
 			}
 			y = (y - _areaPoints[0]) * 2;
 			_areaPoints[y + 1] = -1;
@@ -205,13 +213,13 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 void Graphics::fillArea(uint8 color, bool hasAlpha) {
 	debug(DBG_VIDEO, "Graphics::fillArea()");
 	int16 *pts = _areaPoints;
-	uint8 *dst = _layer + (*pts++) * 256 + 12808;
+	uint8 *dst = _layer + (_cry + *pts++) * 256 + _crx;
 	int16 x1 = *pts++;
 	if (x1 >= 0) {
 		if (hasAlpha && color > 0xC7) {
 			do {
 				int16 x2 = *pts++;
-				if (x2 < 240 && x2 >= x1) {
+				if (x2 < _crw && x2 >= x1) {
 					int len = x2 - x1 + 1;
 					for (int i = 0; i < len; ++i) {
 						*(dst + x1 + i) |= color & 8; // XXX 0x88
@@ -223,7 +231,7 @@ void Graphics::fillArea(uint8 color, bool hasAlpha) {
 		} else {
 			do {
 				int16 x2 = *pts++;
-				if (x2 < 240 && x2 >= x1) {
+				if (x2 < _crw && x2 >= x1) {
 					int len = x2 - x1 + 1;
 					memset(dst + x1, color, len);				
 				}
@@ -254,8 +262,8 @@ void Graphics::drawSegment(uint8 color, bool hasAlpha, int16 ys, const Point *pt
 	if (xmin < 0) {
 		xmin = 0;
 	}
-	if (xmax >= 240) {
-		xmax = 239;
+	if (xmax >= _crw) {
+		xmax = _crw - 1;
 	}
 	_areaPoints[0] = ys;
 	_areaPoints[1] = xmin;
@@ -377,7 +385,7 @@ void Graphics::drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 n
 		}
 	}
 	int16 *rpts = _areaPoints;
-	if (xmax < 0 || xmin >= 240 || ymax < 0 || ymin >= 128) {
+	if (xmax < 0 || xmin >= _crw || ymax < 0 || ymin >= _crh) {
 		return;
 	}
 	if (numPts == 2) {
@@ -394,8 +402,8 @@ void Graphics::drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 n
 	int32 xstep2 = 0;
 	
 	apts1 = &spts[numPts * 2];
-	xmax = 239;
-	ymax = 127;
+	xmax = _crw - 1;
+	ymax = _crh - 1;
 	int32 l1 = 65536;
 	int32 l2 = -65536;
 	if (ymin < 0) {

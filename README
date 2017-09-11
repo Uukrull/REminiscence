@@ -1,7 +1,8 @@
 
 REminiscence README
-Release version: 0.1.6 (Jun 5 2005)
+Release version: 0.1.7 (Aug 24 2005)
 -------------------------------------------------------------------------------
+
 
 About:
 ------
@@ -10,10 +11,13 @@ REminiscence is a re-implementation of the engine used in the game Flashback
 made by Delphine Software and released in 1992. More informations about the
 game can be found on mobygames [1] and also here [2].
 
+
 Supported Versions:
 -------------------
 
-Currently, only the PC DOS version is supported.
+Only the PC DOS versions are supported. The engine has been reported to work
+with english, french, german and spanish versions of the game.
+
 
 Compiling:
 ----------
@@ -21,10 +25,12 @@ Compiling:
 Tweak the Makefile if needed and type make (only gcc3 has been tested so far).
 The SDL and zlib libraries are required.
 
-Running:
---------
+
+Data Files:
+-----------
 
 You will need the original files, here is the required list :
+
 	FB_TXT.FNT
 	GLOBAL.ICN
 	GLOBAL.FIB
@@ -43,12 +49,53 @@ You will need the original files, here is the required list :
 	*.CMD
 	*.POL
 	*CINE.*
-	
-To start the game, you can either :
-- put the game's datafiles in the same directory as the executable
-- use the --datapath command line option to specify the datafiles directory
+
+If you have a version distributed by SSI, you'll have to rename some files :
+
+	logosssi.cmd -> logos.cmd
+	logosssi.pol -> logos.pol
+	menu1ssi.map -> menu1.map
+	menu1ssi.pal -> menu1.pal
+
+In order to hear music, you'll need the original modules (.mod) of the amiga
+version. Copy them to the data directory and rename them like this :
+
+	mod.flashback-ascenseur.mod
+	mod.flashback-ceinturea.mod
+	mod.flashback-chute.mod
+	mod.flashback-desintegr.mod
+	mod.flashback-donneobjt.mod
+	mod.flashback-fin.mod
+	mod.flashback-fin2.mod
+	mod.flashback-game_over.mod
+	mod.flashback-holocube.mod
+	mod.flashback-introb.mod
+	mod.flashback-jungle.mod
+	mod.flashback-logo.mod
+	mod.flashback-memoire.mod
+	mod.flashback-missionca.mod
+	mod.flashback-options1.mod
+	mod.flashback-options2.mod
+	mod.flashback-reunion.mod
+	mod.flashback-taxi.mod
+	mod.flashback-teleport2.mod
+	mod.flashback-teleporta.mod
+	mod.flashback-voyage.mod
+
+
+Running:
+--------
+
+By default, the engine will try to load the game data files from the 'DATA'
+directory (as the original game did). The savestates are saved in the current
+directory. These paths can be changed using command line switches :
+
+	Usage: rs [OPTIONS]...
+  	--datapath=PATH   Path to data files (default 'DATA')
+  	--savepath=PATH   Path to save files (default '.')
 
 Here are the various in game hotkeys :
+   
     Arrow Keys      move Conrad
     Enter           use the current inventory object 
     Shift           talk / use / run / shoot
@@ -62,16 +109,19 @@ Here are the various in game hotkeys :
     Ctrl R          toggle input keys record
     Ctrl P          toggle input keys replay
 
+
 Credits:
 --------
 
 Delphine Software, obviously, for making another great game.
 Yaz0r, Pixel and gawd for sharing information they gathered on the game.
 
+
 Contact:
 --------
 
 Gregory Montoir, cyx@users.sourceforge.net
+
 
 URLs:
 -----

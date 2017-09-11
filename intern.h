@@ -44,7 +44,7 @@ inline void SWAP(T &a, T &b) {
 
 enum Version {
 	VER_FR,
-	VER_US,
+	VER_EN,
 	VER_DE,
 	VER_SP
 };

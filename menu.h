@@ -22,7 +22,7 @@
 #include "intern.h"
 
 struct Locale;
-struct Player;
+struct ModPlayer;
 struct Resource;
 struct SystemStub;
 struct Video;
@@ -43,7 +43,7 @@ struct Menu {
 	static const char *_passwords[8][3];
 	
 	Locale *_loc;
-	Player *_ply;
+	ModPlayer *_ply;
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
@@ -55,7 +55,7 @@ struct Menu {
 	uint8 _charVar4;
 	uint8 _charVar5;
 	
-	Menu(Locale *loc, Player *ply, Resource *res, SystemStub *stub, Video *vid);
+	Menu(Locale *loc, ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid);
 
 	void drawString(const char *str, int16 y, int16 x, uint8 color);
 	void drawString2(const char *str, int16 y, int16 x);

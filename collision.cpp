@@ -43,7 +43,7 @@ void Game::col_clearState() {
 }
 
 void Game::col_preparePiegeState(LivePGE *pge) {
-	debug(DBG_COL, "Game::col_preparePiegeState() pge_num = %d", pge - &_pgeLive[0]);
+	debug(DBG_COL, "Game::col_preparePiegeState() pge_num=%d", pge - &_pgeLive[0]);
 	CollisionSlot *ct_slot1, *ct_slot2;
 	if (pge->init_PGE->unk1C == 0) {
 		pge->collision_slot = 0xFF;
@@ -150,8 +150,8 @@ int16 Game::col_getGridData(LivePGE *pge, int16 dy, int16 dx) {
 	if (_pge_currentPiegeFacingDir) {
 		dx = -dx;
 	}
-	int16 pge_grid_y = _col_currentPiegeGridPosY + dy;
-	int16 pge_grid_x = _col_currentPiegeGridPosX + dx;
+	const int16 pge_grid_y = _col_currentPiegeGridPosY + dy;
+	const int16 pge_grid_x = _col_currentPiegeGridPosX + dx;
 	const int8 *room_ct_data;
 	int8 next_room;
 	if (pge_grid_x < 0) {
@@ -358,33 +358,33 @@ int Game::col_detectHitCallback5(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16
 	return 0;
 }
 
-int Game::col_detectHitCallbackHelper(LivePGE *pge, int16 unk1) {
+int Game::col_detectHitCallbackHelper(LivePGE *pge, int16 groupId) {
 	InitPGE *init_pge = pge->init_PGE;
 	assert(init_pge->obj_node_number < _res._numObjectNodes);
 	ObjectNode *on = _res._objectNodesMap[init_pge->obj_node_number];
 	Object *obj = &on->objects[pge->first_obj_number];
 	int i = pge->first_obj_number;
 	while (pge->obj_type == obj->type && on->last_obj_number > i) {
-		if (obj->opcode2 == 0x6B) {
+		if (obj->opcode2 == 0x6B) { // pge_op_isInGroupSlice
 			if (obj->opcode_arg2 == 0) {
-				if (unk1 == 1 || unk1 == 2) return 0xFFFF;
+				if (groupId == 1 || groupId == 2) return 0xFFFF;
 			}
 			if (obj->opcode_arg2 == 1) {
-				if (unk1 == 3 || unk1 == 4) return 0xFFFF;				
+				if (groupId == 3 || groupId == 4) return 0xFFFF;				
 			}			
-		} else if (obj->opcode2 == 0x22) {
-			if (obj->opcode_arg2 == unk1) return 0xFFFF;
+		} else if (obj->opcode2 == 0x22) { // pge_op_isInGroup
+			if (obj->opcode_arg2 == groupId) return 0xFFFF;
 		}
 
-		if (obj->opcode1 == 0x6B) {
+		if (obj->opcode1 == 0x6B) { // pge_op_isInGroupSlice
 			if (obj->opcode_arg1 == 0) {
-				if (unk1 == 1 || unk1 == 2) return 0xFFFF;
+				if (groupId == 1 || groupId == 2) return 0xFFFF;
 			}
 			if (obj->opcode_arg1 == 1) {
-				if (unk1 == 3 || unk1 == 4) return 0xFFFF;				
+				if (groupId == 3 || groupId == 4) return 0xFFFF;				
 			}			
-		} else if (obj->opcode1 == 0x22) {
-			if (obj->opcode_arg1 == unk1) return 0xFFFF;
+		} else if (obj->opcode1 == 0x22) { // pge_op_isInGroup
+			if (obj->opcode_arg1 == groupId) return 0xFFFF;
 		}
 		++obj;
 		++i;

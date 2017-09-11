@@ -331,7 +331,7 @@ void Resource::load_MBK(File *f) {
 		f->readUint16BE(); /* unused */
 		_mbk[i].offset = f->readUint16BE() - num * 6;
 		_mbk[i].len = f->readUint16BE();
-		debug(DBG_RES, "data_size = 0x%X entry %d off = 0x%X len = 0x%X", data_size, i, _mbk[i].offset + num * 6, _mbk[i].len);
+		debug(DBG_RES, "data_size=0x%X entry %d off=0x%X len=0x%X", data_size, i, _mbk[i].offset + num * 6, _mbk[i].len);
 		assert(_mbk[i].offset <= data_size);
 	}
 	_mbkData = (uint8 *)malloc(data_size);
@@ -412,7 +412,7 @@ void Resource::load_OBJ(File *f) {
 		int diff = offsets[i + 1] - offsets[i];
 		if (diff != 0) {
 			objectsCount[numObjectsCount] = (diff - 2) / 0x12;
-			debug(DBG_RES, "i = %d objectsCount[numObjectsCount] = %d", i, objectsCount[numObjectsCount]);
+			debug(DBG_RES, "i=%d objectsCount[numObjectsCount]=%d", i, objectsCount[numObjectsCount]);
 			++numObjectsCount;			
 		}
 	}
@@ -426,7 +426,7 @@ void Resource::load_OBJ(File *f) {
 			f->seek(offsets[i] + 2);
 			on->last_obj_number = f->readUint16LE();
 			on->num_objects = objectsCount[iObj];
-			debug(DBG_RES, "last = %d num = %d", on->last_obj_number, on->num_objects);
+			debug(DBG_RES, "last=%d num=%d", on->last_obj_number, on->num_objects);
 			on->objects = (Object *)malloc(sizeof(Object) * on->num_objects);
 			for (uint16 j = 0; j < on->num_objects; ++j) {
 				Object *obj = &on->objects[j];
@@ -457,7 +457,7 @@ void Resource::load_PGE(File *f) {
 	int len = f->size() - 2;
 	_pgeNum = f->readUint16LE();
 	memset(_pgeInit, 0, sizeof(_pgeInit));
-	debug(DBG_RES, "len = %d _pgeNum = %d", len, _pgeNum);
+	debug(DBG_RES, "len=%d _pgeNum=%d", len, _pgeNum);
 	for (uint16 i = 0; i < _pgeNum; ++i) {
 		InitPGE *pge = &_pgeInit[i];
 		pge->type = f->readUint16LE();

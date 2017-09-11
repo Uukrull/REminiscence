@@ -16,65 +16,64 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include "file.h"
 #include "game.h"
-#include "resource.h"
 #include "systemstub.h"
 
 static const char *USAGE = 
 	"REminiscence - Flashback Interpreter\n"
 	"Usage: rs [OPTIONS]...\n"
-	"  --datapath=PATH   Path to where the game is installed (default '.')\n"
-	"  --savepath=PATH   Path to where the save files are stored (default '.')\n"
-	"  --version=VER     Version of the game to load : fr, sp, de, us (default)\n";
-
-static const struct {
-	const char *name;
-	Version ver;
-} VERSIONS[] = {
-	{ "fr",  VER_FR },
-	{ "sp",  VER_SP },
-	{ "de",  VER_DE },
-	{ "us",  VER_US }
-};
+	"  --datapath=PATH   Path to data files (default 'DATA')\n"
+	"  --savepath=PATH   Path to save files (default '.')";
 
 static bool parseOption(const char *arg, const char *longCmd, const char **opt) {
-	bool ret = false;
+	bool handled = false;
 	if (arg[0] == '-' && arg[1] == '-') {
 		if (strncmp(arg + 2, longCmd, strlen(longCmd)) == 0) {
 			*opt = arg + 2 + strlen(longCmd);
-			ret = true;
+			handled = true;
 		}
 	}
-	return ret;
+	return handled;
+}
+
+static Version detectVersion(const char *dataPath) {
+	static struct {
+		const char *filename;
+		Version ver;
+	} checkTable[] = {
+		{ "FR_CINE.BIN", VER_FR },
+		{ "ENGCINE.BIN", VER_EN },
+		{ "GERCINE.BIN", VER_DE },
+		{ "SPACINE.BIN", VER_SP }
+	};
+	for (uint8 i = 0; i < ARRAYSIZE(checkTable); ++i) {
+		File f;
+		if (f.open(checkTable[i].filename, dataPath, "rb")) {
+			return checkTable[i].ver;
+		}
+	}
+	error("Unable to find data files, check that all required files are present");
+	return VER_EN;
 }
 
 #undef main
 int main(int argc, char *argv[]) {
-	const char *dataPath = ".";
+	const char *dataPath = "DATA";
 	const char *savePath = ".";
-	const char *version = 0;
-	Version ver = VER_US;
 	for (int i = 1; i < argc; ++i) {
 		bool opt = false;
 		if (strlen(argv[i]) >= 2) {
 			opt |= parseOption(argv[i], "datapath=", &dataPath);
 			opt |= parseOption(argv[i], "savepath=", &savePath);
-			opt |= parseOption(argv[i], "version=", &version);
 		}
 		if (!opt) {
 			printf(USAGE);
 			return 0;
 		}
 	}
-	if (version) {
-		for (unsigned int j = 0; j < ARRAYSIZE(VERSIONS); ++j) {
-			if (strcmp(version, VERSIONS[j].name) == 0) {
-				ver = VERSIONS[j].ver;
-				break;
-			}
-		}
-	}
-	g_debugMask = DBG_INFO; // DBG_CUT | DBG_VIDEO | DBG_RES | DBG_MENU | DBG_PGE | DBG_GAME | DBG_UNPACK | DBG_COL | DBG_MOD;
+	Version ver = detectVersion(dataPath);
+	g_debugMask = DBG_INFO; // DBG_CUT | DBG_VIDEO | DBG_RES | DBG_MENU | DBG_PGE | DBG_GAME | DBG_UNPACK | DBG_COL | DBG_MOD | DBG_SFX;
 	SystemStub *stub = SystemStub_SDL_create();
 	Game *g = new Game(stub, dataPath, savePath, ver);
 	g->run();

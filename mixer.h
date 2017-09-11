@@ -37,7 +37,7 @@ struct MixerChannel {
 struct SystemStub;
 
 struct Mixer {
-	typedef void (*PremixHook)(void *userData, int8 *buf, int len);
+	typedef bool (*PremixHook)(void *userData, int8 *buf, int len);
 	
 	enum {
 		NUM_CHANNELS = 4,

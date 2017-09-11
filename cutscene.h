@@ -22,7 +22,7 @@
 #include "intern.h"
 #include "graphics.h"
 
-struct Player;
+struct ModPlayer;
 struct Resource;
 struct SystemStub;
 struct Video;
@@ -41,9 +41,10 @@ struct Cutscene {
 	static const uint8 _creditsData[];
 	static const uint16 _creditsCutSeq[];
 	static const uint8 _musicTable[];
+	static const uint8 _protectionShapeData[];
 
 	Graphics _gfx;
-	Player *_ply;
+	ModPlayer *_ply;
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
@@ -96,7 +97,7 @@ struct Cutscene {
 	int16 _creditsTextCounter;
 	uint8 *_page0, *_page1, *_pageC;
 	
-	Cutscene(Player *player, Resource *res, SystemStub *stub, Video *vid, Version ver);
+	Cutscene(ModPlayer *player, Resource *res, SystemStub *stub, Video *vid, Version ver);
 	
 	void sync();
 	void copyPalette(const uint8 *pal, uint16 num);
@@ -107,6 +108,7 @@ struct Cutscene {
 	void drawText(int16 x, int16 y, const uint8 *p, uint16 color, uint8 *page, uint8 n);
 	void swapLayers();
 	void drawCreditsText();
+	void drawProtectionShape(uint8 shapeNum, int16 zoom);
 	void op_drawShape0Helper(const uint8 *data, int16 x, int16 y);
 	void op_drawShape1Helper(const uint8 *data, int16 zoom, int16 b, int16 c, int16 d, int16 e, int16 f, int16 g);
 	void op_drawShape2Helper(const uint8 *data, int16 zoom, int16 b, int16 c, int16 d, int16 e, int16 f, int16 g);

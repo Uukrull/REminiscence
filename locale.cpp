@@ -26,7 +26,7 @@ Locale::Locale(Version ver)
 		_stringsTable = _stringsTableFR;
 		_textsTable = _textsTableFR;
 		break;
-	case VER_US:
+	case VER_EN:
 		_stringsTable = _stringsTableEN;
 		_textsTable = _textsTableEN;
 		break;
