@@ -68,10 +68,10 @@ struct ModPlayer {
 		int delayCounter;
 		int cutCounter;
 	};
-	
+		
 	static const uint16 _periodTable[];
-	static const char *_modulesFiles[];
-	static const int _modulesCount;
+	static const char *_modulesFiles[][2];
+	static const int _modulesFilesCount;
 	
 	ModuleInfo _modInfo;
 	uint8 _currentPatternOrder;

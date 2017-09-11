@@ -27,6 +27,7 @@ ModPlayer::ModPlayer(Mixer *mixer, const char *dataPath)
 	for (int i = 0; i < 64; ++i) {
 		_vibratoSineWaveform[i] = (uint8)(sin(i * 2 * M_PI / 64) * 255);
 	}
+	memset(&_modInfo, 0, sizeof(_modInfo));
 }
 
 uint16 ModPlayer::findPeriod(uint16 period, uint8 fineTune) const {
@@ -91,32 +92,36 @@ void ModPlayer::unload() {
 		for (int s = 0; s < NUM_SAMPLES; ++s) {
 			free(_modInfo.samples[s].data);
 		}
-		memset(&_modInfo, 0, sizeof(ModuleInfo));
+		memset(&_modInfo, 0, sizeof(_modInfo));
 	}
 }
 
 void ModPlayer::play(uint8 num) {
-	if (!_playing && num < _modulesCount) {
-		const char *mfn = _modulesFiles[num];
-		if (mfn) {
-			File f;
-			if (!f.open(mfn, _dataPath, "rb")) {
-				warning("Can't open '%s'", mfn);
-			} else {
-				load(&f);
-				_currentPatternOrder = 0;
-				_currentPatternPos = 0;
-				_currentTick = 0;
-				_patternDelay = 0;
-				_songSpeed = 6;
-				_songTempo = 125;
-				_patternLoopPos = 0;
-				_patternLoopCount = -1;
-				_samplesLeft = 0;
-				memset(_tracks, 0, sizeof(_tracks));
-				_mix->setPremixHook(mixCallback, this);
-				_playing = true;
+	if (!_playing && num < _modulesFilesCount) {
+		File f;
+		bool found = false;
+		for (uint8 i = 0; i < ARRAYSIZE(_modulesFiles[num]); ++i) {
+			if (f.open(_modulesFiles[num][i], _dataPath, "rb")) {
+				found = true;
+				break;
 			}
+		}
+		if (!found) {
+			warning("Can't find music file %d", num);
+		} else {
+			load(&f);
+			_currentPatternOrder = 0;
+			_currentPatternPos = 0;
+			_currentTick = 0;
+			_patternDelay = 0;
+			_songSpeed = 6;
+			_songTempo = 125;
+			_patternLoopPos = 0;
+			_patternLoopCount = -1;
+			_samplesLeft = 0;
+			memset(_tracks, 0, sizeof(_tracks));
+			_mix->setPremixHook(mixCallback, this);
+			_playing = true;
 		}
 	}
 }

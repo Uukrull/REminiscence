@@ -21,7 +21,7 @@
 
 
 SfxPlayer::SfxPlayer(Mixer *mixer)
-	: _playing(false), _mix(mixer) {
+	: _mod(0), _playing(false), _mix(mixer) {
 }
 
 void SfxPlayer::play(uint8 num) {

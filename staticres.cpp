@@ -1977,36 +1977,36 @@ const uint16 ModPlayer::_periodTable[] = {
 	216, 203, 192, 181, 171, 161, 152, 144, 136, 128, 121, 114  // C-3 to B-3 Finetune -1
 };
 
-const char *ModPlayer::_modulesFiles[] = {
-	"mod.flashback-introb.mod", // introl3
-	"mod.flashback-options2.mod", // option3
-	0, // journal3
-	"mod.flashback-ceinturea.mod", // chute3
-	"mod.flashback-desintegr.mod", // desinte3
-	"mod.flashback-reunion.mod", // capture3
-	"mod.flashback-voyage.mod", // voyage3
-	"mod.flashback-teleport2.mod", // telepor3
-	"mod.flashback-fin.mod", // planexp3
-	"mod.flashback-fin2.mod", // end31
-	"mod.flashback-ascenseur.mod", // lift3
-	"mod.flashback-logo.mod", // present3
-	"mod.flashback-game_over.mod", // gameove3
-	"mod.flashback-holocube.mod", // holo3
-	"mod.flashback-memoire.mod", // memory3
-	"mod.flashback-chute.mod", // chutevi3
-	"mod.flashback-jungle.mod", // reveil3
-	"mod.flashback-missionca.mod", // misvali3
-	"mod.flashback-taxi.mod", // taxi3
-	"mod.flashback-donneobjt.mod", // donner3
-	0, // mission3
-	0, // objet3
-	0, // recharg3
-	0, // generat3
-	0, // pont3
-	0  // rechage3
+const char *ModPlayer::_modulesFiles[][2] = {
+	{ "intro",       "mod.flashback-introb"    }, // introl3
+	{ "options",     "mod.flashback-options2"  }, // option3
+	{ "journal",     "mod.flashback-options1"  }, // journal3
+	{ "ceinture",    "mod.flashback-ceinturea" }, // chute3
+	{ "desinteg",    "mod.flashback-desintegr" }, // desinte3
+	{ "reunion",     "mod.flashback-reunion"   }, // capture3
+	{ "voyage",      "mod.flashback-voyage"    }, // voyage3
+	{ "level4",      "mod.flashback-teleporta" }, // telepor3
+	{ "planetexplo", "mod.flashback-teleport2" }, // planexp3
+	{ "fin",         "mod.flashback-fin"       }, // end31
+	{ "ascenseur",   "mod.flashback-ascenseur" }, // lift3
+	{ "logo",        "mod.flashback-logo"      }, // present3
+	{ "game_over",   "mod.flashback-game_over" }, // gameove3
+	{ "holocube",    "mod.flashback-holocube"  }, // holo3
+	{ "memoire",     "mod.flashback-memoire"   }, // memory3
+	{ "chute",       "mod.flashback-chute"     }, // chutevi3
+	{ "debut",       "mod.flashback-jungle"    }, // reveil3
+	{ "missions",    "mod.flashback-missionca" }, // misvali3
+	{ "taxi",        "mod.flashback-taxi"      }, // taxi3
+	{ "donneobj",    "mod.flashback-donneobjt" }, // donner3
+	{ "missions2",   "mod.flashback-fin2"      }  // mission3
+//	{ 0,             0,                        }, // objet3
+//	{ 0,             0,                        }, // recharg3
+//	{ 0,             0,                        }, // generat3
+//	{ 0,             0,                        }, // pont3
+//	{ 0,             0,                        }  // rechage3
 };
 
-const int ModPlayer::_modulesCount = ARRAYSIZE(_modulesFiles);
+const int ModPlayer::_modulesFilesCount = ARRAYSIZE(_modulesFiles);
 
 const uint8 SfxPlayer::_musicData68[] = {
 	0x00, 0x1B, 0x00, 0x07, 0x00, 0x0C, 0x00, 0x18, 0xFF, 0xF4, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x00, 

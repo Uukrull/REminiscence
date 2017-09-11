@@ -287,7 +287,7 @@ void SystemStub_SDL::processEvents() {
 				}
 				break;
 			}
-            break;
+			break;
 		case SDL_JOYBUTTONDOWN:
 			switch (ev.jbutton.button) {
 			case 0:

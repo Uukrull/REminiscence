@@ -49,13 +49,10 @@ void Game::run() {
 
 	_mix.init();
 	
-	_cut._id = 0x40;
-	_cut.play();
-	_cut._id = 0x0D;
-	_cut.play();
+	playCutscene(0x40);
+	playCutscene(0x0D);
 	if (!_cut._interrupted) {
-		_cut._id = 0x4A;
-		_cut.play();
+		playCutscene(0x4A);
 	}
 	
 	_res.load("GLOBAL", Resource::OT_ICN);
@@ -70,8 +67,7 @@ void Game::run() {
 		if (_currentLevel == 7) {
 			_vid.fadeOut();
 			_vid.setTextPalette();
-			_cut._id = 0x3D;
-			_cut.play();
+			playCutscene(0x3D);
 		} else {
 			_vid.setTextPalette();
 			_vid.setPalette0xF();
@@ -115,10 +111,7 @@ void Game::mainLoop() {
 	loadLevelData();
 	resetGameState();
 	while (!_stub->_pi.quit) {
-		if (_cut._id != 0xFFFF) {
-			_sfxPly.stop();
-			_cut.play();
-		}
+		playCutscene();
 		if (_cut._id == 0x3D) {
 			showFinalScore();
 			break;
@@ -126,11 +119,9 @@ void Game::mainLoop() {
 		if (_deathCutsceneCounter) {
 			--_deathCutsceneCounter;
 			if (_deathCutsceneCounter == 0) {
-				_cut._id = _cut._deathCutsceneId;
-				_cut.play();
+				playCutscene(_cut._deathCutsceneId);
 				if (!handleContinueAbort()) {
-					_cut._id = 0x41;
-					_cut.play();					
+					playCutscene(0x41);
 					break;
 				} else {
 					if (_validSaveState) {
@@ -210,6 +201,16 @@ void Game::mainLoop() {
 	}
 }
 
+void Game::playCutscene(int id) {
+	if (id != -1) {
+		_cut._id = id;
+	}
+	if (_cut._id != 0xFFFF) {
+		_sfxPly.stop();
+		_cut.play();
+	}
+}
+
 void Game::inp_handleSpecialKeys() {
 	if (_stub->_pi.dbgMask & PlayerInput::DF_SETLIFE) {
 		_pgeLive[0].life = 0x7FFF;
@@ -286,8 +287,7 @@ void Game::drawCurrentInventoryItem() {
 }
 
 void Game::showFinalScore() {
-	_cut._id = 0x49;
-	_cut.play();
+	playCutscene(0x49);
 	char textBuf[50];
 	sprintf(textBuf, "SCORE %08lu", _score);
 	_vid.drawString(textBuf, (256 - strlen(textBuf) * 8) / 2, 40, 0xE5);
@@ -402,8 +402,7 @@ bool Game::handleConfigPanel() {
 }
 
 bool Game::handleContinueAbort() {
-	_cut._id = 0x48;
-	_cut.play();
+	playCutscene(0x48);	
 	char textBuf[50];
 	int timeout = 100;
 	int current_color = 0;
@@ -565,30 +564,28 @@ void Game::printSaveStateCompleted() {
 }
 
 void Game::drawLevelTexts() {
-	LivePGE *_si = &_pgeLive[0];
-	int8 obj = col_findCurrentCollidingObject(_si, 3, 0xFF, 0xFF, &_si);
+	LivePGE *pge = &_pgeLive[0];
+	int8 obj = col_findCurrentCollidingObject(pge, 3, 0xFF, 0xFF, &pge);
 	if (obj == 0) {
-		obj = col_findCurrentCollidingObject(_si, 0xFF, 5, 9, &_si);
+		obj = col_findCurrentCollidingObject(pge, 0xFF, 5, 9, &pge);
 	}
-	if (obj == 0 || obj < 0) {
-		return;
-	}
-	_printLevelCodeCounter = 0;
-	if (_textToDisplay == 0xFFFF) {
-		debug(DBG_GAME, "Game::drawLevelTexts() obj=0x%X col_pge=%d", obj, _si - &_pgeLive[0]);
-		uint8 icon_num = obj - 1;
-		drawIcon(icon_num, 80, 8, 0xA);
-		uint8 txt_num = _si->init_PGE->text_num;
-		const char *str = (const char *)_res._tbn + READ_LE_UINT16(_res._tbn + txt_num * 2);
-		_vid.drawString(str, (176 - strlen(str) * 8) / 2, 26, 0xE6);
-		if (icon_num == 2) {
-			printSaveStateCompleted();
+	if (obj > 0) {
+		_printLevelCodeCounter = 0;
+		if (_textToDisplay == 0xFFFF) {
+			uint8 icon_num = obj - 1;
+			drawIcon(icon_num, 80, 8, 0xA);
+			uint8 txt_num = pge->init_PGE->text_num;
+			const char *str = (const char *)_res._tbn + READ_LE_UINT16(_res._tbn + txt_num * 2);
+			_vid.drawString(str, (176 - strlen(str) * 8) / 2, 26, 0xE6);
+			if (icon_num == 2) {
+				printSaveStateCompleted();
+				return;
+			}
 		} else {
-			_saveStateCompleted = false;
+			_currentInventoryIconNum = obj - 1;
 		}
-	} else {
-		_currentInventoryIconNum = obj - 1;
 	}
+	_saveStateCompleted = false;
 }
 
 void Game::drawStoryTexts() {
