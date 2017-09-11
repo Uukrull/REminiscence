@@ -1,23 +1,22 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __SYSTEMSTUB_H__
-#define __SYSTEMSTUB_H__
+#ifndef SYSTEMSTUB_H__
+#define SYSTEMSTUB_H__
 
 #include "intern.h"
 
@@ -63,18 +62,19 @@ struct SystemStub {
 
 	virtual ~SystemStub() {}
 
-	virtual void init(const char *title, uint16 w, uint16 h) = 0;
+	virtual void init(const char *title, int w, int h) = 0;
 	virtual void destroy() = 0;
 
-	virtual void setPalette(const uint8 *pal, uint16 n) = 0;
-	virtual void setPaletteEntry(uint8 i, const Color *c) = 0;
-	virtual void getPaletteEntry(uint8 i, Color *c) = 0;
-	virtual void setOverscanColor(uint8 i) = 0;
-	virtual void copyRect(int16 x, int16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) = 0;
-	virtual void updateScreen(uint8 shakeOffset) = 0;
+	virtual void setPalette(const uint8 *pal, int n) = 0;
+	virtual void setPaletteEntry(int i, const Color *c) = 0;
+	virtual void getPaletteEntry(int i, Color *c) = 0;
+	virtual void setOverscanColor(int i) = 0;
+	virtual void copyRect(int x, int y, int w, int h, const uint8 *buf, int pitch) = 0;
+	virtual void fadeScreen() = 0;
+	virtual void updateScreen(int shakeOffset) = 0;
 
 	virtual void processEvents() = 0;
-	virtual void sleep(uint32 duration) = 0;
+	virtual void sleep(int duration) = 0;
 	virtual uint32 getTimeStamp() = 0;
 
 	virtual void startAudio(AudioCallback callback, void *param) = 0;
@@ -101,6 +101,5 @@ struct MutexStack {
 };
 
 extern SystemStub *SystemStub_SDL_create();
-extern SystemStub *SystemStub_Win32_create();
 
-#endif // __SYSTEMSTUB_H__
+#endif // SYSTEMSTUB_H__

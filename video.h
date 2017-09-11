@@ -1,23 +1,22 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __VIDEO_H__
-#define __VIDEO_H__
+#ifndef VIDEO_H__
+#define VIDEO_H__
 
 #include "intern.h"
 
@@ -62,21 +61,30 @@ struct Video {
 	void updateScreen();
 	void fullRefresh();
 	void fadeOut();
+	void fadeOutPalette();
+	void setPaletteColorBE(int num, int offset);
 	void setPaletteSlotBE(int palSlot, int palNum);
 	void setPaletteSlotLE(int palSlot, const uint8 *palData);
 	void setTextPalette();
 	void setPalette0xF();
-	void copyLevelMap(uint16 room);
-	void decodeLevelMap(uint16 sz, const uint8 *src, uint8 *dst);
-	void setLevelPalettes();
+	void PC_decodeMap(int level, int room);
+	void PC_setLevelPalettes();
+	void PC_decodeIcn(const uint8 *src, int num, uint8 *dst);
+	void PC_decodeSpc(const uint8 *src, int w, int h, uint8 *dst);
+	void AMIGA_decodeLev(int level, int room);
+	void AMIGA_decodeSpm(const uint8 *src, uint8 *dst);
+	void AMIGA_decodeIcn(const uint8 *src, int num, uint8 *dst);
+	void AMIGA_decodeSpc(const uint8 *src, int w, int h, uint8 *dst);
 	void drawSpriteSub1(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub2(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub3(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub4(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub5(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub6(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
-	void drawChar(uint8 c, int16 y, int16 x);
+	void PC_drawChar(uint8 c, int16 y, int16 x);
+	void PC_drawStringChar(uint8 *dst, int pitch, const uint8 *src, uint8 color, uint8 chr);
+	void AMIGA_drawStringChar(uint8 *dst, int pitch, const uint8 *src, uint8 color, uint8 chr);
 	const char *drawString(const char *str, int16 x, int16 y, uint8 col);
 };
 
-#endif // __VIDEO_H__
+#endif // VIDEO_H__

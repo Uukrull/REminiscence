@@ -15,40 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <cstdarg>
-#include "util.h"
+#ifndef FS_H__
+#define FS_H__
 
+#include "intern.h"
 
-uint16 g_debugMask;
+struct FileSystem_impl;
 
-void debug(uint16 cm, const char *msg, ...) {
-	char buf[1024];
-	if (cm & g_debugMask) {
-		va_list va;
-		va_start(va, msg);
-		vsprintf(buf, msg, va);
-		va_end(va);
-		printf("%s\n", buf);
-		fflush(stdout);
-	}
-}
+struct FileSystem {
+	FileSystem(const char *dataPath);
+	~FileSystem();
 
-void error(const char *msg, ...) {
-	char buf[1024];
-	va_list va;
-	va_start(va, msg);
-	vsnprintf(buf, sizeof(buf), msg, va);
-	va_end(va);
-	fprintf(stderr, "ERROR: %s!\n", buf);
-	exit(-1);
-}
+	FileSystem_impl *_impl;
 
-void warning(const char *msg, ...) {
-	char buf[1024];
-	va_list va;
-	va_start(va, msg);
-	vsnprintf(buf, sizeof(buf), msg, va);
-	va_end(va);
-	fprintf(stderr, "WARNING: %s!\n", buf);
-}
+	const char *findPath(const char *filename);
+};
+
+#endif // FS_H__
 

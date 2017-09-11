@@ -1,19 +1,18 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <ctime>
@@ -21,24 +20,37 @@
 #include "systemstub.h"
 #include "unpack.h"
 #include "game.h"
+#include "seq_player.h"
 
 
-Game::Game(SystemStub *stub, const char *dataPath, const char *savePath, Version ver)
-	: _cut(&_modPly, &_res, stub, &_vid, ver), _menu(&_modPly, &_res, stub, &_vid),
-	_mix(stub), _modPly(&_mix, dataPath), _res(dataPath, ver), _sfxPly(&_mix), _vid(&_res, stub),
-	_stub(stub), _savePath(savePath) {
+Game::Game(SystemStub *stub, FileSystem *fs, const char *savePath, int level, ResourceType ver, Language lang)
+	: _cut(&_modPly, &_res, stub, &_vid), _menu(&_modPly, &_res, stub, &_vid),
+	_mix(stub), _modPly(&_mix, fs), _res(fs, ver, lang), _seqPly(stub), _sfxPly(&_mix), _vid(&_res, stub),
+	_stub(stub), _fs(fs), _savePath(savePath) {
 	_stateSlot = 1;
 	_inp_demo = 0;
 	_inp_record = false;
 	_inp_replay = false;
+	_skillLevel = 1;
+	_currentLevel = level;
 }
 
 void Game::run() {
 	_stub->init("REminiscence", Video::GAMESCREEN_W, Video::GAMESCREEN_H);
 
 	_randSeed = time(0);
+
 	_res.load_TEXT();
-	_res.load("FB_TXT", Resource::OT_FNT);
+
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		_res.load("FONT8", Resource::OT_FNT, "SPR");
+		break;
+	case kResourceTypePC:
+		_res.load("FB_TXT", Resource::OT_FNT);
+		_res._hasSeqData = File().open("INTRO.SEQ", "rb", _fs);
+		break;
+	}
 
 #ifndef BYPASS_PROTECTION
 	while (!handleProtectionScreen());
@@ -51,19 +63,26 @@ void Game::run() {
 
 	playCutscene(0x40);
 	playCutscene(0x0D);
-	if (!_cut._interrupted) {
+	if (!_cut._interrupted && _res._type == kResourceTypePC) {
 		playCutscene(0x4A);
 	}
 
-	_res.load("GLOBAL", Resource::OT_ICN);
-	_res.load("PERSO", Resource::OT_SPR);
-	_res.load_SPR_OFF("PERSO", _res._spr1);
-	_res.load_FIB("GLOBAL");
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		_res.load("ICONE", Resource::OT_ICN, "SPR");
+		_res.load("ICON", Resource::OT_ICN, "SPR");
+		_res.load("PERSO", Resource::OT_SPM);
+		break;
+	case kResourceTypePC:
+		_res.load("GLOBAL", Resource::OT_ICN);
+		_res.load("GLOBAL", Resource::OT_SPC);
+		_res.load("PERSO", Resource::OT_SPR);
+		_res.load_SPR_OFF("PERSO", _res._spr1);
+		_res.load_FIB("GLOBAL");
+		break;
+	}
 
-	_skillLevel = 1;
-	_currentLevel = 0;
-
-	while (!_stub->_pi.quit && _menu.handleTitleScreen(_skillLevel, _currentLevel)) {
+	while (!_stub->_pi.quit && (_res._type == kResourceTypeAmiga || _menu.handleTitleScreen(_skillLevel, _currentLevel))) {
 		if (_currentLevel == 7) {
 			_vid.fadeOut();
 			_vid.setTextPalette();
@@ -108,8 +127,6 @@ void Game::mainLoop() {
 	_vid._unkPalSlot1 = 0;
 	_vid._unkPalSlot2 = 0;
 	_score = 0;
-	_firstBankData = _bankData;
-	_lastBankData = _bankData + sizeof(_bankData);
 	loadLevelData();
 	resetGameState();
 	while (!_stub->_pi.quit) {
@@ -210,8 +227,71 @@ void Game::playCutscene(int id) {
 	}
 	if (_cut._id != 0xFFFF) {
 		_sfxPly.stop();
+		if (_res._hasSeqData) {
+			int num = 0;
+			switch (_cut._id) {
+			case 0x03: {
+					static const uint8 tab[] = { 1, 2, 1, 3, 3, 4, 4 };
+					num = tab[_currentLevel];
+				}
+				break;
+			case 0x05: {
+					static const uint8 tab[] = { 1, 2, 3, 5, 5, 4, 4 };
+					num = tab[_currentLevel];
+				}
+				break;
+			case 0x0A: {
+					static const uint8 tab[] = { 1, 2, 2, 2, 2, 2, 2 };
+					num = tab[_currentLevel];
+				}
+				break;
+			case 0x10: {
+					static const uint8 tab[] = { 1, 1, 1, 2, 2, 3, 3 };
+					num = tab[_currentLevel];
+				}
+				break;
+			case 0x3B:
+				return;
+			case 0x3C: {
+					static const uint8 tab[] = { 1, 1, 1, 1, 1, 2, 2 };
+					num = tab[_currentLevel];
+				}
+				break;
+			case 0x40:
+				return;
+			case 0x4A:
+				return;
+			}
+			if (SeqPlayer::_namesTable[_cut._id]) {
+			        char name[16];
+			        snprintf(name, sizeof(name), "%s.SEQ", SeqPlayer::_namesTable[_cut._id]);
+				char *p = strchr(name, '0');
+				if (p) {
+					*p += num;
+				}
+			        if (playCutsceneSeq(name)) {
+					if (_cut._id == 0x3D) {
+						playCutsceneSeq("CREDITS.SEQ");
+					} else {
+						_cut._id = 0xFFFF;
+					}
+					return;
+				}
+			}
+		}
 		_cut.play();
 	}
+}
+
+bool Game::playCutsceneSeq(const char *name) {
+	File f;
+	if (f.open(name, "rb", _fs)) {
+		_seqPly.setBackBuffer(_res._memBuf);
+		_seqPly.play(&f);
+		_vid.fullRefresh();
+		return true;
+	}
+	return false;
 }
 
 void Game::inp_handleSpecialKeys() {
@@ -243,12 +323,12 @@ void Game::inp_handleSpecialKeys() {
 			_inp_demo->close();
 			delete _inp_demo;
 		}
-		_inp_demo = new File(true);
+		_inp_demo = new File;
 		if (_stub->_pi.inpRecord) {
 			if (_inp_record) {
 				debug(DBG_INFO, "Stop recording input keys");
 			} else {
-				if (_inp_demo->open(demoFile, _savePath, "wb")) {
+				if (_inp_demo->open(demoFile, "zwb", _savePath)) {
 					debug(DBG_INFO, "Recording input keys");
 					_inp_demo->writeUint32BE('FBDM');
 					_inp_demo->writeUint16BE(0);
@@ -263,7 +343,7 @@ void Game::inp_handleSpecialKeys() {
 			if (_inp_replay) {
 				debug(DBG_INFO, "Stop replaying input keys");
 			} else {
-				if (_inp_demo->open(demoFile, _savePath, "rb")) {
+				if (_inp_demo->open(demoFile, "zrb", _savePath)) {
 					debug(DBG_INFO, "Replaying input keys");
 					_inp_demo->readUint32BE();
 					_inp_demo->readUint16BE();
@@ -291,11 +371,11 @@ void Game::drawCurrentInventoryItem() {
 
 void Game::showFinalScore() {
 	playCutscene(0x49);
-	char textBuf[50];
-	sprintf(textBuf, "SCORE %08lu", _score);
-	_vid.drawString(textBuf, (256 - strlen(textBuf) * 8) / 2, 40, 0xE5);
-	strcpy(textBuf, _menu._passwords[7][_skillLevel]);
-	_vid.drawString(textBuf, (256 - strlen(textBuf) * 8) / 2, 16, 0xE7);
+	char buf[50];
+	snprintf(buf, sizeof(buf), "SCORE %08u", _score);
+	_vid.drawString(buf, (256 - strlen(buf) * 8) / 2, 40, 0xE5);
+	strcpy(buf, _menu._passwords[7][_skillLevel]);
+	_vid.drawString(buf, (256 - strlen(buf) * 8) / 2, 16, 0xE7);
 	while (!_stub->_pi.quit) {
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
 		_stub->updateScreen(0);
@@ -309,7 +389,9 @@ void Game::showFinalScore() {
 }
 
 bool Game::handleConfigPanel() {
-	int i, j;
+	if (_res._type == kResourceTypeAmiga) {
+		return true;
+	}
 	const int x = 7;
 	const int y = 10;
 	const int w = 17;
@@ -319,25 +401,25 @@ bool Game::handleConfigPanel() {
 	_vid._charFrontColor = 0xEE;
 	_vid._charTransparentColor = 0xFF;
 
-	_vid.drawChar(0x81, y, x);
-	for (i = 1; i < w; ++i) {
-		_vid.drawChar(0x85, y, x + i);
+	_vid.PC_drawChar(0x81, y, x);
+	for (int i = 1; i < w; ++i) {
+		_vid.PC_drawChar(0x85, y, x + i);
 	}
-	_vid.drawChar(0x82, y, x + w);
-	for (j = 1; j < h; ++j) {
-		_vid.drawChar(0x86, y + j, x);
-		for (i = 1; i < w; ++i) {
+	_vid.PC_drawChar(0x82, y, x + w);
+	for (int j = 1; j < h; ++j) {
+		_vid.PC_drawChar(0x86, y + j, x);
+		for (int i = 1; i < w; ++i) {
 			_vid._charTransparentColor = 0xE2;
-			_vid.drawChar(0x20, y + j, x + i);
+			_vid.PC_drawChar(0x20, y + j, x + i);
 		}
 		_vid._charTransparentColor = 0xFF;
-		_vid.drawChar(0x87, y + j, x + w);
+		_vid.PC_drawChar(0x87, y + j, x + w);
 	}
-	_vid.drawChar(0x83, y + h, x);
-	for (i = 1; i < w; ++i) {
-		_vid.drawChar(0x88, y + h, x + i);
+	_vid.PC_drawChar(0x83, y + h, x);
+	for (int i = 1; i < w; ++i) {
+		_vid.PC_drawChar(0x88, y + h, x + i);
 	}
-	_vid.drawChar(0x84, y + h, x + w);
+	_vid.PC_drawChar(0x84, y + h, x + w);
 
 	_menu._charVar3 = 0xE4;
 	_menu._charVar4 = 0xE5;
@@ -353,9 +435,9 @@ bool Game::handleConfigPanel() {
 		_menu.drawString(_res.getMenuString(LocaleData::LI_20_LOAD_GAME), y + 4, 9, colors[1]);
 		_menu.drawString(_res.getMenuString(LocaleData::LI_21_SAVE_GAME), y + 6, 9, colors[2]);
 		_menu.drawString(_res.getMenuString(LocaleData::LI_19_ABORT_GAME), y + 8, 9, colors[3]);
-		char slotItem[30];
-		sprintf(slotItem, "%s : %d-%02d", _res.getMenuString(LocaleData::LI_22_SAVE_SLOT), _currentLevel + 1, _stateSlot);
-		_menu.drawString(slotItem, y + 10, 9, 1);
+		char buf[30];
+		snprintf(buf, sizeof(buf), "%s : %d-%02d", _res.getMenuString(LocaleData::LI_22_SAVE_SLOT), _currentLevel + 1, _stateSlot);
+		_menu.drawString(buf, y + 10, 9, 1);
 
 		_vid.updateScreen();
 		_stub->sleep(80);
@@ -406,7 +488,6 @@ bool Game::handleConfigPanel() {
 
 bool Game::handleContinueAbort() {
 	playCutscene(0x48);
-	char textBuf[50];
 	int timeout = 100;
 	int current_color = 0;
 	uint8 colors[] = { 0xE4, 0xE5 };
@@ -419,14 +500,15 @@ bool Game::handleContinueAbort() {
 		str = _res.getMenuString(LocaleData::LI_01_CONTINUE_OR_ABORT);
 		_vid.drawString(str, (256 - strlen(str) * 8) / 2, 64, 0xE3);
 		str = _res.getMenuString(LocaleData::LI_02_TIME);
-		sprintf(textBuf, "%s : %d", str, timeout / 10);
-		_vid.drawString(textBuf, 96, 88, 0xE3);
+		char buf[50];
+		snprintf(buf, sizeof(buf), "%s : %d", str, timeout / 10);
+		_vid.drawString(buf, 96, 88, 0xE3);
 		str = _res.getMenuString(LocaleData::LI_03_CONTINUE);
 		_vid.drawString(str, (256 - strlen(str) * 8) / 2, 104, colors[0]);
 		str = _res.getMenuString(LocaleData::LI_04_ABORT);
 		_vid.drawString(str, (256 - strlen(str) * 8) / 2, 112, colors[1]);
-		sprintf(textBuf, "SCORE  %08lu", _score);
-		_vid.drawString(textBuf, 64, 154, 0xE3);
+		snprintf(buf, sizeof(buf), "SCORE  %08u", _score);
+		_vid.drawString(buf, 64, 154, 0xE3);
 		if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
 			_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;
 			if (current_color > 0) {
@@ -497,9 +579,9 @@ bool Game::handleProtectionScreen() {
 		codeText[len] = '\0';
 		memcpy(_vid._frontLayer, _vid._tempLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
 		_menu.drawString("PROTECTION", 2, 11, 5);
-		char textBuf[20];
-		sprintf(textBuf, "CODE %d :  %s", codeNum + 1, codeText);
-		_menu.drawString(textBuf, 23, 8, 5);
+		char buf[20];
+		snprintf(buf, sizeof(buf), "CODE %d :  %s", codeNum + 1, codeText);
+		_menu.drawString(buf, 23, 8, 5);
 		_vid.updateScreen();
 		_stub->sleep(50);
 		_stub->processEvents();
@@ -553,7 +635,7 @@ void Game::printLevelCode() {
 		--_printLevelCodeCounter;
 		if (_printLevelCodeCounter != 0) {
 			char levelCode[50];
-			sprintf(levelCode, "CODE: %s", _menu._passwords[_currentLevel][_skillLevel]);
+			snprintf(levelCode, sizeof(levelCode), "CODE: %s", _menu._passwords[_currentLevel][_skillLevel]);
 			_vid.drawString(levelCode, (Video::GAMESCREEN_W - strlen(levelCode) * 8) / 2, 16, 0xE7);
 		}
 	}
@@ -625,6 +707,7 @@ void Game::drawStoryTexts() {
 			}
 			if (chunk.data) {
 				_mix.stopAll();
+				free(chunk.data);
 			}
 			_stub->_pi.backspace = false;
 			if (*str == 0) {
@@ -690,7 +773,6 @@ void Game::prepareAnims() {
 
 void Game::prepareAnimsHelper(LivePGE *pge, int16 dx, int16 dy) {
 	debug(DBG_GAME, "Game::prepareAnimsHelper() dx=0x%X dy=0x%X pge_num=%d pge->flags=0x%X pge->anim_number=0x%X", dx, dy, pge - &_pgeLive[0], pge->flags, pge->anim_number);
-	int16 xpos, ypos;
 	if (!(pge->flags & 8)) {
 		if (pge->index != 0 && loadMonsterSprites(pge) == 0) {
 			return;
@@ -700,39 +782,48 @@ void Game::prepareAnimsHelper(LivePGE *pge, int16 dx, int16 dy) {
 		if (dataPtr == 0) {
 			return;
 		}
-
+		const int8 dw = (int8)dataPtr[0];
+		const int8 dh = (int8)dataPtr[1];
+		uint8 w = 0, h = 0;
+		switch (_res._type) {
+		case kResourceTypeAmiga:
+			w = ((dataPtr[2] >> 7) + 1) * 16;
+			h = dataPtr[2] & 0x7F;
+			break;
+		case kResourceTypePC:
+			w = dataPtr[2];
+			h = dataPtr[3];
+			dataPtr += 4;
+			break;
+		}
+		const int16 ypos = dy + pge->pos_y - dh + 2;
+		int16 xpos = dx + pge->pos_x - dw;
 		if (pge->flags & 2) {
-			xpos = (int8)dataPtr[0] + dx + pge->pos_x;
-			uint8 _cl = dataPtr[2];
+			xpos = dw + dx + pge->pos_x;
+			uint8 _cl = w;
 			if (_cl & 0x40) {
-				_cl = dataPtr[3];
+				_cl = h;
 			} else {
 				_cl &= 0x3F;
 			}
 			xpos -= _cl;
-		} else {
-			xpos = dx + pge->pos_x - (int8)dataPtr[0];
 		}
-
-		ypos = dy + pge->pos_y - (int8)dataPtr[1] + 2;
 		if (xpos <= -32 || xpos >= 256 || ypos < -48 || ypos >= 224) {
 			return;
 		}
 		xpos += 8;
-		dataPtr += 4;
 		if (pge == &_pgeLive[0]) {
-			_animBuffers.addState(1, xpos, ypos, dataPtr, pge);
+			_animBuffers.addState(1, xpos, ypos, dataPtr, pge, w, h);
 		} else if (pge->flags & 0x10) {
-			_animBuffers.addState(2, xpos, ypos, dataPtr, pge);
+			_animBuffers.addState(2, xpos, ypos, dataPtr, pge, w, h);
 		} else {
-			_animBuffers.addState(0, xpos, ypos, dataPtr, pge);
+			_animBuffers.addState(0, xpos, ypos, dataPtr, pge, w, h);
 		}
 	} else {
 		assert(pge->anim_number < _res._numSpc);
 		const uint8 *dataPtr = _res._spc + READ_BE_UINT16(_res._spc + pge->anim_number * 2);
-		xpos = dx + pge->pos_x + 8;
-		ypos = dy + pge->pos_y + 2;
-
+		const int16 xpos = dx + pge->pos_x + 8;
+		const int16 ypos = dy + pge->pos_y + 2;
 		if (pge->init_PGE->object_type == 11) {
 			_animBuffers.addState(3, xpos, ypos, dataPtr, pge);
 		} else if (pge->flags & 0x10) {
@@ -768,11 +859,19 @@ void Game::drawAnimBuffer(uint8 stateNum, AnimBufferState *state) {
 				if (stateNum == 1 && (_blinkingConradCounter & 1)) {
 					break;
 				}
-				if (!(state->dataPtr[-2] & 0x80)) {
-					decodeCharacterFrame(state->dataPtr, _res._memBuf);
-					drawCharacter(_res._memBuf, state->x, state->y, state->dataPtr[-1], state->dataPtr[-2], pge->flags);
-				} else {
-					drawCharacter(state->dataPtr, state->x, state->y, state->dataPtr[-1], state->dataPtr[-2], pge->flags);
+				switch (_res._type) {
+				case kResourceTypeAmiga:
+					_vid.AMIGA_decodeSpm(state->dataPtr, _res._memBuf);
+					drawCharacter(_res._memBuf, state->x, state->y, state->h, state->w, pge->flags);
+					break;
+				case kResourceTypePC:
+					if (!(state->dataPtr[-2] & 0x80)) {
+						decodeCharacterFrame(state->dataPtr, _res._memBuf);
+						drawCharacter(_res._memBuf, state->x, state->y, state->h, state->w, pge->flags);
+					} else {
+						drawCharacter(state->dataPtr, state->x, state->y, state->h, state->w, pge->flags);
+					}
+					break;
 				}
 			} else {
 				drawObject(state->dataPtr, state->x, state->y, pge->flags);
@@ -786,11 +885,10 @@ void Game::drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
 	debug(DBG_GAME, "Game::drawObject() dataPtr[]=0x%X dx=%d dy=%d",  dataPtr[0], (int8)dataPtr[1], (int8)dataPtr[2]);
 	assert(dataPtr[0] < 0x4A);
 	uint8 slot = _res._rp[dataPtr[0]];
-	uint8 *data = findBankData(slot);
+	uint8 *data = _res.findBankData(slot);
 	if (data == 0) {
-		data = loadBankData(slot);
+		data = _res.loadBankData(slot);
 	}
-	_bankDataPtrs = data;
 	int16 posy = y - (int8)dataPtr[2];
 	int16 posx = x;
 	if (flags & 2) {
@@ -798,17 +896,26 @@ void Game::drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
 	} else {
 		posx -= (int8)dataPtr[1];
 	}
-	int i = dataPtr[5];
-	dataPtr += 6;
-	while (i--) {
-		drawObjectFrame(dataPtr, posx, posy, flags);
+	int count = 0;
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		count = dataPtr[8];
+		dataPtr += 9;
+		break;
+	case kResourceTypePC:
+		count = dataPtr[5];
+		dataPtr += 6;
+		break;
+	}
+	for (int i = 0; i < count; ++i) {
+		drawObjectFrame(data, dataPtr, posx, posy, flags);
 		dataPtr += 4;
 	}
 }
 
-void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
+void Game::drawObjectFrame(const uint8 *bankDataPtr, const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
 	debug(DBG_GAME, "Game::drawObjectFrame(0x%X, %d, %d, 0x%X)", dataPtr, x, y, flags);
-	const uint8 *src = _bankDataPtrs + dataPtr[0] * 32;
+	const uint8 *src = bankDataPtr + dataPtr[0] * 32;
 
 	int16 sprite_y = y + dataPtr[2];
 	int16 sprite_x;
@@ -826,11 +933,13 @@ void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) 
 	uint8 sprite_h = (((sprite_flags >> 0) & 3) + 1) * 8;
 	uint8 sprite_w = (((sprite_flags >> 2) & 3) + 1) * 8;
 
-	int size = sprite_w * sprite_h / 2;
-	for (int i = 0; i < size; ++i) {
-		uint8 col = *src++;
-		_res._memBuf[i * 2 + 0] = (col & 0xF0) >> 4;
-		_res._memBuf[i * 2 + 1] = (col & 0x0F) >> 0;
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		_vid.AMIGA_decodeSpc(src, sprite_w, sprite_h, _res._memBuf);
+		break;
+	case kResourceTypePC:
+		_vid.PC_decodeSpc(src, sprite_w, sprite_h, _res._memBuf);
+		break;
 	}
 
 	src = _res._memBuf;
@@ -934,7 +1043,6 @@ void Game::decodeCharacterFrame(const uint8 *dataPtr, uint8 *dstPtr) {
 		}
 	} while (len != 0);
 }
-
 
 void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a, uint8 b, uint8 flags) {
 	debug(DBG_GAME, "Game::drawCharacter(0x%X, %d, %d, 0x%X, 0x%X, 0x%X)", dataPtr, pos_x, pos_y, a, b, flags);
@@ -1041,37 +1149,6 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	_vid.markBlockAsDirty(pos_x, pos_y, sprite_clipped_w, sprite_clipped_h);
 }
 
-uint8 *Game::loadBankData(uint16 mbkEntryNum) {
-	debug(DBG_GAME, "Game::loadBankData(%d)", mbkEntryNum);
-	MbkEntry *me = &_res._mbk[mbkEntryNum];
-	const uint16 avail = _lastBankData - _firstBankData;
-	const uint16 size = (me->len & 0x7FFF) * 32;
-	if (avail < size) {
-		_curBankSlot = &_bankSlots[0];
-		_curBankSlot->entryNum = 0xFFFF;
-		_curBankSlot->ptr = 0;
-		_firstBankData = _bankData;
-	}
-	_curBankSlot->entryNum = mbkEntryNum;
-	_curBankSlot->ptr = _firstBankData;
-	++_curBankSlot;
-	_curBankSlot->entryNum = 0xFFFF;
-	_curBankSlot->ptr = 0;
-	const uint8 *data = _res._mbkData + me->offset;
-	if (me->len & 0x8000) {
-		warning("Uncompressed bank data %d", mbkEntryNum);
-		memcpy(_firstBankData, data, size);
-	} else {
-		assert(me->offset != 0);
-		if (!delphine_unpack(_firstBankData, data, 0)) {
-			error("Bad CRC for bank data %d", mbkEntryNum);
-		}
-	}
-	uint8 *bankData = _firstBankData;
-	_firstBankData += size;
-	assert(_firstBankData < _lastBankData);
-	return bankData;
-}
 
 int Game::loadMonsterSprites(LivePGE *pge) {
 	debug(DBG_GAME, "Game::loadMonsterSprites()");
@@ -1096,9 +1173,19 @@ int Game::loadMonsterSprites(LivePGE *pge) {
 	_curMonsterFrame = mList[0];
 	if (_curMonsterNum != mList[1]) {
 		_curMonsterNum = mList[1];
-		_res.load(_monsterNames[_curMonsterNum], Resource::OT_SPRM);
-		_res.load_SPR_OFF(_monsterNames[_curMonsterNum], _res._sprm);
-		_vid.setPaletteSlotLE(5, _monsterPals[_curMonsterNum]);
+		if (_res._type == kResourceTypeAmiga) {
+			_res.load(_monsterNames[1][_curMonsterNum], Resource::OT_SPM);
+			static const uint8 tab[4] = { 0, 8, 0, 8 };
+			const int offset = _vid._mapPalSlot2 * 16 + tab[_curMonsterNum];
+			for (int i = 0; i < 8; ++i) {
+				_vid.setPaletteColorBE(0x50 + i, offset + i);
+			}
+		} else {
+			const char *name = _monsterNames[0][_curMonsterNum];
+			_res.load(name, Resource::OT_SPRM);
+			_res.load_SPR_OFF(name, _res._sprm);
+			_vid.setPaletteSlotLE(5, _monsterPals[_curMonsterNum]);
+		}
 	}
 	return 0xFFFF;
 }
@@ -1106,35 +1193,90 @@ int Game::loadMonsterSprites(LivePGE *pge) {
 void Game::loadLevelMap() {
 	debug(DBG_GAME, "Game::loadLevelMap() room=%d", _currentRoom);
 	_currentIcon = 0xFF;
-	_vid.copyLevelMap(_currentRoom);
-	_vid.setLevelPalettes();
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		if (_currentLevel == 1) {
+			static const uint8 tab[64] = {
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 0,
+				0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 1, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0
+			};
+			const int num = tab[_currentRoom];
+			if (num != 0 && _res._levNum != num) {
+				char name[8];
+				snprintf(name, sizeof(name), "level2_%d", num);
+				_res.load(name, Resource::OT_LEV);
+				_res._levNum = num;
+			}
+		}
+		_vid.AMIGA_decodeLev(_currentLevel, _currentRoom);
+		break;
+	case kResourceTypePC:
+		_vid.PC_decodeMap(_currentLevel, _currentRoom);
+		_vid.PC_setLevelPalettes();
+		break;
+	}
 }
 
 void Game::loadLevelData() {
 	_res.clearLevelRes();
-
 	const Level *lvl = &_gameLevels[_currentLevel];
-	_res.load(lvl->name, Resource::OT_SPC);
-	_res.load(lvl->name, Resource::OT_MBK);
-	_res.load(lvl->name, Resource::OT_RP);
-	_res.load(lvl->name, Resource::OT_CT);
-	_res.load(lvl->name, Resource::OT_MAP);
-	_res.load(lvl->name, Resource::OT_PAL);
-
-	_res.load(lvl->name2, Resource::OT_PGE);
-	_res.load(lvl->name2, Resource::OT_OBJ);
-	_res.load(lvl->name2, Resource::OT_ANI);
-	_res.load(lvl->name2, Resource::OT_TBN);
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		{
+			const char *name = lvl->nameAmiga;
+			if (_currentLevel == 4) {
+				name = _gameLevels[3].nameAmiga;
+			}
+			_res.load(name, Resource::OT_MBK);
+			if (_currentLevel == 6) {
+				_res.load(_gameLevels[5].nameAmiga, Resource::OT_CT);
+			} else {
+				_res.load(name, Resource::OT_CT);
+			}
+			_res.load(name, Resource::OT_PAL);
+			_res.load(name, Resource::OT_RPC);
+			_res.load(name, Resource::OT_SPC);
+			if (_currentLevel == 1) {
+				_res.load("level2_1", Resource::OT_LEV);
+				_res._levNum = 1;
+			} else {
+				_res.load(name, Resource::OT_LEV);
+			}
+		}
+		_res.load(lvl->nameAmiga, Resource::OT_PGE);
+		_res.load(lvl->nameAmiga, Resource::OT_OBC);
+		_res.load(lvl->nameAmiga, Resource::OT_ANI);
+		_res.load(lvl->nameAmiga, Resource::OT_TBN);
+		{
+			char name[8];
+			snprintf(name, sizeof(name), "level%d", lvl->spl);
+			_res.load(name, Resource::OT_SPL);
+		}
+		if (_currentLevel == 0) {
+			_res.load(lvl->nameAmiga, Resource::OT_SGD);
+		}
+		break;
+	case kResourceTypePC:
+		_res.load(lvl->name, Resource::OT_MBK);
+		_res.load(lvl->name, Resource::OT_CT);
+		_res.load(lvl->name, Resource::OT_PAL);
+		_res.load(lvl->name, Resource::OT_RP);
+		_res.load(lvl->name, Resource::OT_MAP);
+		_res.load(lvl->name2, Resource::OT_PGE);
+		_res.load(lvl->name2, Resource::OT_OBJ);
+		_res.load(lvl->name2, Resource::OT_ANI);
+		_res.load(lvl->name2, Resource::OT_TBN);
+		break;
+	}
 
 	_cut._id = lvl->cutscene_id;
 
 	_curMonsterNum = 0xFFFF;
 	_curMonsterFrame = 0;
 
-	_curBankSlot = &_bankSlots[0];
-	_curBankSlot->entryNum = 0xFFFF;
-	_curBankSlot->ptr = 0;
-	_firstBankData = _bankData;
+	_res.clearBankData();
 	_printLevelCodeCounter = 150;
 
 	_col_slots2Cur = _col_slots2;
@@ -1160,25 +1302,39 @@ void Game::loadLevelData() {
 	_validSaveState = false;
 }
 
-uint8 *Game::findBankData(uint16 entryNum) {
-	BankSlot *slot = &_bankSlots[0];
-	while (slot->entryNum != 0xFFFF) {
-		if (slot->entryNum == entryNum) {
-			return slot->ptr;
-		}
-		++slot;
-	}
-	return 0;
-}
-
 void Game::drawIcon(uint8 iconNum, int16 x, int16 y, uint8 colMask) {
-	uint16 offset = READ_LE_UINT16(_res._icn + iconNum * 2);
-	uint8 buf[256];
-	uint8 *p = _res._icn + offset + 2;
-	for (int i = 0; i < 128; ++i) {
-		uint8 col = *p++;
-		buf[i * 2 + 0] = (col & 0xF0) >> 4;
-		buf[i * 2 + 1] = (col & 0x0F) >> 0;
+	uint8 buf[16 * 16];
+	switch (_res._type) {
+	case kResourceTypeAmiga:
+		if (iconNum > 30) {
+			// inventory icons
+			switch (iconNum) {
+			case 76: // cursor
+				memset(buf, 0, 16 * 16);
+				for (int i = 0; i < 3; ++i) {
+					buf[i] = buf[15 * 16 + (15 - i)] = 1;
+					buf[i * 16] = buf[(15 - i) * 16 + 15] = 1;
+				}
+				break;
+			case 77: // up - icon.spr 4
+				memset(buf, 0, 16 * 16);
+				_vid.AMIGA_decodeIcn(_res._icn, 35, buf);
+				break;
+			case 78: // down - icon.spr 5
+				memset(buf, 0, 16 * 16);
+				_vid.AMIGA_decodeIcn(_res._icn, 36, buf);
+				break;
+			default:
+				memset(buf, 5, 16 * 16);
+				break;
+			}
+		} else {
+			_vid.AMIGA_decodeIcn(_res._icn, iconNum, buf);
+		}
+		break;
+	case kResourceTypePC:
+		_vid.PC_decodeIcn(_res._icn, iconNum, buf);
+		break;
 	}
 	_vid.drawSpriteSub1(buf, _vid._frontLayer + x + y * 256, 16, 16, 16, colMask << 4);
 	_vid.markBlockAsDirty(x, y, 16, 16);
@@ -1191,7 +1347,8 @@ void Game::playSound(uint8 sfxId, uint8 softVol) {
 			MixerChunk mc;
 			mc.data = sfx->data;
 			mc.len = sfx->len;
-			_mix.play(&mc, 6000, Mixer::MAX_VOLUME >> softVol);
+			const int freq = _res._type == kResourceTypeAmiga ? 3546897 / 650 : 6000;
+			_mix.play(&mc, freq, Mixer::MAX_VOLUME >> softVol);
 		}
 	} else {
 		// in-game music
@@ -1277,25 +1434,25 @@ void Game::handleInventory() {
 						const char *str = (const char *)_res._tbn + READ_LE_UINT16(_res._tbn + txt_num * 2);
 						_vid.drawString(str, (256 - strlen(str) * 8) / 2, 189, 0xED);
 						if (items[item_it].init_pge->init_flags & 4) {
-							char counterValue[10];
-							sprintf(counterValue, "%d", selected_pge->life);
-							_vid.drawString(counterValue, (256 - strlen(counterValue) * 8) / 2, 197, 0xED);
+							char buf[10];
+							snprintf(buf, sizeof(buf), "%d", selected_pge->life);
+							_vid.drawString(buf, (256 - strlen(buf) * 8) / 2, 197, 0xED);
 						}
 					}
 					icon_x_pos += 32;
 				}
 				if (current_line != 0) {
-					drawIcon(0x4E, 120, 176, 0xA); // down arrow
+					drawIcon(78, 120, 176, 0xA); // down arrow
 				}
 				if (current_line != num_lines - 1) {
-					drawIcon(0x4D, 120, 143, 0xA); // up arrow
+					drawIcon(77, 120, 143, 0xA); // up arrow
 				}
 			} else {
-				char textBuf[50];
-				sprintf(textBuf, "SCORE %08lu", _score);
-				_vid.drawString(textBuf, (114 - strlen(textBuf) * 8) / 2 + 72, 158, 0xE5);
-				sprintf(textBuf, "%s:%s", _res.getMenuString(LocaleData::LI_06_LEVEL), _res.getMenuString(LocaleData::LI_13_EASY + _skillLevel));
-				_vid.drawString(textBuf, (114 - strlen(textBuf) * 8) / 2 + 72, 166, 0xE5);
+				char buf[50];
+				snprintf(buf, sizeof(buf), "SCORE %08u", _score);
+				_vid.drawString(buf, (114 - strlen(buf) * 8) / 2 + 72, 158, 0xE5);
+				snprintf(buf, sizeof(buf), "%s:%s", _res.getMenuString(LocaleData::LI_06_LEVEL), _res.getMenuString(LocaleData::LI_13_EASY + _skillLevel));
+				_vid.drawString(buf, (114 - strlen(buf) * 8) / 2 + 72, 166, 0xE5);
 			}
 
 			_vid.updateScreen();
@@ -1395,8 +1552,8 @@ bool Game::saveGameState(uint8 slot) {
 	bool success = false;
 	char stateFile[20];
 	makeGameStateName(slot, stateFile);
-	File f(true);
-	if (!f.open(stateFile, _savePath, "wb")) {
+	File f;
+	if (!f.open(stateFile, "zwb", _savePath)) {
 		warning("Unable to save state file '%s'", stateFile);
 	} else {
 		// header
@@ -1422,8 +1579,8 @@ bool Game::loadGameState(uint8 slot) {
 	bool success = false;
 	char stateFile[20];
 	makeGameStateName(slot, stateFile);
-	File f(true);
-	if (!f.open(stateFile, _savePath, "rb")) {
+	File f;
+	if (!f.open(stateFile, "zrb", _savePath)) {
 		warning("Unable to open state file '%s'", stateFile);
 	} else {
 		uint32 id = f.readUint32BE();
@@ -1587,12 +1744,14 @@ void Game::loadState(File *f) {
 	resetGameState();
 }
 
-void AnimBuffers::addState(uint8 stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge) {
+void AnimBuffers::addState(uint8 stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge, uint8 w, uint8 h) {
 	debug(DBG_GAME, "AnimBuffers::addState() stateNum=%d x=%d y=%d dataPtr=0x%X pge=0x%X", stateNum, x, y, dataPtr, pge);
 	assert(stateNum < 4);
 	AnimBufferState *state = _states[stateNum];
 	state->x = x;
 	state->y = y;
+	state->w = w;
+	state->h = h;
 	state->dataPtr = dataPtr;
 	state->pge = pge;
 	++_curPos[stateNum];

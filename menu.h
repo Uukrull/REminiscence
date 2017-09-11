@@ -1,23 +1,22 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __MENU_H__
-#define __MENU_H__
+#ifndef MENU_H__
+#define MENU_H__
 
 #include "intern.h"
 
@@ -28,9 +27,10 @@ struct Video;
 
 struct Menu {
 	enum {
-		MENU_OPTION_ITEM_START = 0,
+		MENU_OPTION_ITEM_START,
 		MENU_OPTION_ITEM_SKILL,
 		MENU_OPTION_ITEM_PASSWORD,
+		MENU_OPTION_ITEM_LEVEL,
 		MENU_OPTION_ITEM_INFO,
 		MENU_OPTION_ITEM_QUIT
 	};
@@ -61,7 +61,8 @@ struct Menu {
 	void handleInfoScreen();
 	void handleSkillScreen(uint8 &new_skill);
 	bool handlePasswordScreen(uint8 &new_skill, uint8 &new_level);
+	bool handleLevelScreen(uint8 &new_skill, uint8 &new_level);
 	bool handleTitleScreen(uint8 &new_skill, uint8 &new_level);
 };
 
-#endif // __MENU_H__
+#endif // MENU_H__

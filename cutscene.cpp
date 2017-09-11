@@ -1,19 +1,18 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "mod_player.h"
@@ -23,8 +22,8 @@
 #include "cutscene.h"
 
 
-Cutscene::Cutscene(ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
-	: _ply(ply), _res(res), _stub(stub), _vid(vid), _ver(ver) {
+Cutscene::Cutscene(ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid)
+	: _ply(ply), _res(res), _stub(stub), _vid(vid) {
 	memset(_palBuf, 0, sizeof(_palBuf));
 }
 
@@ -391,9 +390,11 @@ void Cutscene::op_drawStringAtBottom() {
 		memset(_page1 + 179 * 256, 0xC0, 45 * 256);
 		memset(_page0 + 179 * 256, 0xC0, 45 * 256);
 		if (strId != 0xFFFF) {
-			uint16 offset = READ_BE_UINT16(_res->_cine_off + strId * 2);
-			drawText(0, 129, _res->_cine_txt + offset, 0xEF, _page1, 1);
-			drawText(0, 129, _res->_cine_txt + offset, 0xEF, _pageC, 1);
+			const uint8 *str = _res->getCineString(strId);
+			if (str) {
+				drawText(0, 129, str, 0xEF, _page1, 1);
+				drawText(0, 129, str, 0xEF, _pageC, 1);
+			}
 		}
 	}
 }
@@ -834,9 +835,11 @@ void Cutscene::op_drawStringAtPos() {
 		int16 x = (int8)fetchNextCmdByte() * 8;
 		int16 y = (int8)fetchNextCmdByte() * 8;
 		if (!_creditsSequence) {
-			uint8 color = 0xD0 + (strId >> 0xC);
-			uint16 offset = READ_BE_UINT16(_res->_cine_off + (strId & 0xFFF) * 2);
-			drawText(x, y, _res->_cine_txt + offset, color, _page1, 2);
+			const uint8 *str = _res->getCineString(strId & 0xFFF);
+			if (str) {
+				uint8 color = 0xD0 + (strId >> 0xC);
+				drawText(x, y, str, color, _page1, 2);
+			}
 			// workaround for buggy cutscene script
 			if (_id == 0x34 && (strId & 0xFFF) == 0x45) {
 				if ((_cmdPtr - _cmdPtrBak) == 0xA) {
@@ -962,9 +965,19 @@ void Cutscene::mainLoop(uint16 offset) {
 void Cutscene::load(uint16 cutName) {
 	assert(cutName != 0xFFFF);
 	const char *name = _namesTable[cutName & 0xFF];
-	_res->load(name, Resource::OT_CMD);
-	_res->load(name, Resource::OT_POL);
-	_res->load_CINE();
+	switch (_res->_type) {
+	case kResourceTypeAmiga:
+		if (strncmp(name, "INTRO", 5) == 0) {
+			name = "INTRO";
+		}
+		_res->load(name, Resource::OT_CMP);
+		break;
+	case kResourceTypePC:
+		_res->load(name, Resource::OT_CMD);
+		_res->load(name, Resource::OT_POL);
+		_res->load_CINE();
+		break;
+	}
 }
 
 void Cutscene::prepare() {

@@ -1,27 +1,27 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __MOD_PLAYER_H__
-#define __MOD_PLAYER_H__
+#ifndef MOD_PLAYER_H__
+#define MOD_PLAYER_H__
 
 #include "intern.h"
 
 struct File;
+struct FileSystem;
 struct Mixer;
 
 struct ModPlayer {
@@ -98,9 +98,9 @@ struct ModPlayer {
 	bool _playing;
 	Track _tracks[NUM_TRACKS];
 	Mixer *_mix;
-	const char *_dataPath;
+	FileSystem *_fs;
 
-	ModPlayer(Mixer *mixer, const char *dataPath);
+	ModPlayer(Mixer *mixer, FileSystem *fs);
 
 	uint16 findPeriod(uint16 period, uint8 fineTune) const;
 	void load(File *f);
@@ -119,4 +119,4 @@ struct ModPlayer {
 	static bool mixCallback(void *param, int8 *buf, int len);
 };
 
-#endif // __MOD_PLAYER_H__
+#endif // MOD_PLAYER_H__

@@ -1,6 +1,6 @@
 
 REminiscence README
-Release version: 0.1.9 (Mar 16 2007)
+Release version: 0.2.0 (Mar 11 2011)
 -------------------------------------------------------------------------------
 
 
@@ -12,18 +12,10 @@ made by Delphine Software and released in 1992. More informations about the
 game can be found at [1], [2] and [3].
 
 
-Supported Versions:
--------------------
-
-Only the PC DOS versions are supported. The engine has been reported to work
-with english, french, german and spanish versions of the game.
-
-
 Compiling:
 ----------
 
-Tweak the Makefile if needed and type make (only gcc3 has been tested so far).
-The SDL and zlib libraries are required.
+Update the defines in the Makefile if needed. The SDL and zlib libraries are required.
 
 
 Data Files:
@@ -48,6 +40,7 @@ You will need the original files, here is the required list :
 	*.TBN
 	*.CMD
 	*.POL
+	*.SEQ
 	*CINE.*
 
 If you have a version distributed by SSI, you'll have to rename some files :
@@ -58,7 +51,7 @@ If you have a version distributed by SSI, you'll have to rename some files :
 	menu1ssi.pal -> menu1.pal
 
 In order to hear music, you'll need the original music files (.mod) of the
-amiga version. Copy them to the DATA directory and rename them like this :
+Amiga version. Copy them to the DATA directory and rename them like this :
 
 	mod.flashback-ascenseur
 	mod.flashback-ceinturea
@@ -82,6 +75,9 @@ amiga version. Copy them to the DATA directory and rename them like this :
 	mod.flashback-teleporta
 	mod.flashback-voyage
 
+To hear voice during in-game dialogues, you'll need to copy the 'VOICE.VCE'
+file from the SegaCD version to the DATA directory.
+
 
 Running:
 --------
@@ -90,9 +86,9 @@ By default, the engine will try to load the game data files from the 'DATA'
 directory (as the original game did). The savestates are saved in the current
 directory. These paths can be changed using command line switches :
 
-	Usage: rs [OPTIONS]...
-  	--datapath=PATH   Path to data files (default 'DATA')
-  	--savepath=PATH   Path to save files (default '.')
+    Usage: rs [OPTIONS]...
+    --datapath=PATH   Path to data files (default 'DATA')
+    --savepath=PATH   Path to save files (default '.')
 
 In-game hotkeys :
 
@@ -112,9 +108,9 @@ In-game hotkeys :
 Debug hotkeys :
 
     Ctrl F          toggle fast mode
-    Ctrl I          set Conrad life counter to 32767
+    Ctrl I          Conrad 'infinite' life
     Ctrl B          toggle display of updated dirty blocks
-    Ctrl M			mirror mode (just a hack, really)
+    Ctrl M          mirror mode (right - left swapped)
 
 
 Credits:
@@ -122,6 +118,7 @@ Credits:
 
 Delphine Software, obviously, for making another great game.
 Yaz0r, Pixel and gawd for sharing information they gathered on the game.
+Nicolas Bondoux for sound fixes.
 
 
 Contact:

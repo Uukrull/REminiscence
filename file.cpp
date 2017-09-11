@@ -1,28 +1,31 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "fs.h"
+#ifdef USE_ZLIB
 #include "zlib.h"
+#endif
 #include "file.h"
 
 
 struct File_impl {
 	bool _ioErr;
 	File_impl() : _ioErr(false) {}
+	virtual ~File_impl() {}
 	virtual bool open(const char *path, const char *mode) = 0;
 	virtual void close() = 0;
 	virtual uint32 size() = 0;
@@ -78,6 +81,7 @@ struct stdFile : File_impl {
 	}
 };
 
+#ifdef USE_ZLIB
 struct zlibFile : File_impl {
 	gzFile _fp;
 	zlibFile() : _fp(0) {}
@@ -124,37 +128,61 @@ struct zlibFile : File_impl {
 		}
 	}
 };
+#endif
 
 
-File::File(bool gzipped) {
-	if (gzipped) {
-		_impl = new zlibFile;
-	} else {
-		_impl = new stdFile;
-	}
+File::File()
+	: _impl(0) {
 }
 
 File::~File() {
-	_impl->close();
-	delete _impl;
+	if (_impl) {
+		_impl->close();
+		delete _impl;
+	}
 }
 
-bool File::open(const char *filename, const char *directory, const char *mode) {
-	_impl->close();
-	char buf[512];
-	sprintf(buf, "%s/%s", directory, filename);
-	char *p = buf + strlen(directory) + 1;
-	string_lower(p);
-	bool opened = _impl->open(buf, mode);
-	if (!opened) { // let's try uppercase
-		string_upper(p);
-		opened = _impl->open(buf, mode);
+bool File::open(const char *filename, const char *mode, FileSystem *fs) {
+	if (_impl) {
+		_impl->close();
+		delete _impl;
+		_impl = 0;
 	}
-	return opened;
+	assert(mode[0] != 'z');
+	_impl = new stdFile;
+	const char *path = fs->findPath(filename);
+	if (path) {
+		debug(DBG_FILE, "Open file name '%s' mode '%s' path '%s'", filename, mode, path);
+		return _impl->open(path, mode);
+	}
+	return false;
+}
+
+bool File::open(const char *filename, const char *mode, const char *directory) {
+	if (_impl) {
+		_impl->close();
+		delete _impl;
+		_impl = 0;
+	}
+#ifdef USE_ZLIB
+	if (mode[0] == 'z') {
+		_impl = new zlibFile;
+		++mode;
+	}
+#endif
+	if (!_impl) {
+		_impl = new stdFile;
+	}
+	char path[512];
+	snprintf(path, sizeof(path), "%s/%s", directory, filename);
+	debug(DBG_FILE, "Open file name '%s' mode '%s' path '%s'", filename, mode, path);
+	return _impl->open(path, mode);
 }
 
 void File::close() {
-	_impl->close();
+	if (_impl) {
+		_impl->close();
+	}
 }
 
 bool File::ioErr() const {

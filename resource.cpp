@@ -1,19 +1,18 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "file.h"
@@ -21,18 +20,31 @@
 #include "resource.h"
 
 
-Resource::Resource(const char *dataPath, Version ver) {
+Resource::Resource(FileSystem *fs, ResourceType ver, Language lang) {
 	memset(this, 0, sizeof(Resource));
-	_dataPath = dataPath;
-	_ver = ver;
-	_memBuf = (uint8 *)malloc(0xE000);
+	_type = ver;
+	_lang = lang;
+	_fs = fs;
+	_memBuf = (uint8 *)malloc(256 * 224);
+	if (!_memBuf) {
+		error("Unable to allocate temporary memory buffer");
+	}
+	static const int kBankDataSize = 0x7000;
+	_bankData = (uint8 *)malloc(kBankDataSize);
+	if (!_bankData) {
+		error("Unable to allocate bank data buffer");
+	}
+	_bankDataTail = _bankData + kBankDataSize;
+	clearBankData();
 }
 
 Resource::~Resource() {
 	clearLevelRes();
 	free(_fnt);
-	free(_icn);
+	free(_icn); _icn = 0;
+	_icnLen = 0;
 	free(_tab);
+	free(_spc);
 	free(_spr1);
 	free(_memBuf);
 	free(_cmd);
@@ -43,16 +55,16 @@ Resource::~Resource() {
 		free(_sfxList[i].data);
 	}
 	free(_sfxList);
-	free(_voiceBuf);
 }
 
 void Resource::clearLevelRes() {
 	free(_tbn); _tbn = 0;
 	free(_mbk); _mbk = 0;
-	free(_mbkData); _mbkData = 0;
 	free(_pal); _pal = 0;
 	free(_map); _map = 0;
-	free(_spc); _spc = 0;
+	free(_lev); _lev = 0;
+	_levNum = -1;
+	free(_sgd); _sgd = 0;
 	free(_ani); _ani = 0;
 	free_OBJ();
 }
@@ -63,9 +75,9 @@ void Resource::load_FIB(const char *fileName) {
 		0xDE, 0xEB, 0xF3, 0xF8, 0xFB, 0xFD, 0xFE, 0xFF,
 		0x00, 0x01, 0x02, 0x03, 0x05, 0x08, 0x0D, 0x15
 	};
-	sprintf(_entryName, "%s.FIB", fileName);
+	snprintf(_entryName, sizeof(_entryName), "%s.FIB", fileName);
 	File f;
-	if (f.open(_entryName, _dataPath, "rb")) {
+	if (f.open(_entryName, "rb", _fs)) {
 		_numSfx = f.readUint16LE();
 		_sfxList = (SoundFx *)malloc(_numSfx * sizeof(SoundFx));
 		if (!_sfxList) {
@@ -112,9 +124,9 @@ void Resource::load_FIB(const char *fileName) {
 
 void Resource::load_MAP_menu(const char *fileName, uint8 *dstPtr) {
 	debug(DBG_RES, "Resource::load_MAP_menu('%s')", fileName);
-	sprintf(_entryName, "%s.MAP", fileName);
+	snprintf(_entryName, sizeof(_entryName), "%s.MAP", fileName);
 	File f;
-	if (f.open(_entryName, _dataPath, "rb")) {
+	if (f.open(_entryName, "rb", _fs)) {
 		if (f.size() != 0x3800 * 4) {
 			error("Wrong file size for '%s', %d", _entryName, f.size());
 		}
@@ -129,9 +141,9 @@ void Resource::load_MAP_menu(const char *fileName, uint8 *dstPtr) {
 
 void Resource::load_PAL_menu(const char *fileName, uint8 *dstPtr) {
 	debug(DBG_RES, "Resource::load_PAL_menu('%s')", fileName);
-	sprintf(_entryName, "%s.PAL", fileName);
+	snprintf(_entryName, sizeof(_entryName), "%s.PAL", fileName);
 	File f;
-	if (f.open(_entryName, _dataPath, "rb")) {
+	if (f.open(_entryName, "rb", _fs)) {
 		if (f.size() != 768) {
 			error("Wrong file size for '%s', %d", _entryName, f.size());
 		}
@@ -146,9 +158,9 @@ void Resource::load_PAL_menu(const char *fileName, uint8 *dstPtr) {
 
 void Resource::load_SPR_OFF(const char *fileName, uint8 *sprData) {
 	debug(DBG_RES, "Resource::load_SPR_OFF('%s')", fileName);
-	sprintf(_entryName, "%s.OFF", fileName);
+	snprintf(_entryName, sizeof(_entryName), "%s.OFF", fileName);
 	File f;
-	if (f.open(_entryName, _dataPath, "rb")) {
+	if (f.open(_entryName, "rb", _fs)) {
 		int len = f.size();
 		uint8 *offData = (uint8 *)malloc(len);
 		if (!offData) {
@@ -177,25 +189,25 @@ void Resource::load_SPR_OFF(const char *fileName, uint8 *sprData) {
 
 void Resource::load_CINE() {
 	const char *baseName = 0;
-	switch (_ver) {
-	case VER_FR:
+	switch (_lang) {
+	case LANG_FR:
 		baseName = "FR_CINE";
 		break;
-	case VER_EN:
+	case LANG_EN:
 		baseName = "ENGCINE";
 		break;
-	case VER_DE:
+	case LANG_DE:
 		baseName = "GERCINE";
 		break;
-	case VER_SP:
+	case LANG_SP:
 		baseName = "SPACINE";
 		break;
 	}
 	debug(DBG_RES, "Resource::load_CINE('%s')", baseName);
 	if (_cine_off == 0) {
-		sprintf(_entryName, "%s.BIN", baseName);
+		snprintf(_entryName, sizeof(_entryName), "%s.BIN", baseName);
 		File f;
-		if (f.open(_entryName, _dataPath, "rb")) {
+		if (f.open(_entryName, "rb", _fs)) {
 			int len = f.size();
 			_cine_off = (uint8 *)malloc(len);
 			if (!_cine_off) {
@@ -210,9 +222,9 @@ void Resource::load_CINE() {
 		}
 	}
 	if (_cine_txt == 0) {
-		sprintf(_entryName, "%s.TXT", baseName);
+		snprintf(_entryName, sizeof(_entryName), "%s.TXT", baseName);
 		File f;
-		if (f.open(_entryName, _dataPath, "rb")) {
+		if (f.open(_entryName, "rb", _fs)) {
 			int len = f.size();
 			_cine_txt = (uint8 *)malloc(len);
 			if (!_cine_txt) {
@@ -232,7 +244,7 @@ void Resource::load_TEXT() {
 	File f;
 	// Load game strings
 	_stringsTable = 0;
-	if (f.open("STRINGS.TXT", _dataPath, "rb")) {
+	if (f.open("STRINGS.TXT", "rb", _fs)) {
 		const int sz = f.size();
 		_extStringsTable = (uint8 *)malloc(sz);
 		if (_extStringsTable) {
@@ -242,24 +254,24 @@ void Resource::load_TEXT() {
 		f.close();
 	}
 	if (!_stringsTable) {
-		switch (_ver) {
-		case VER_FR:
+		switch (_lang) {
+		case LANG_FR:
 			_stringsTable = LocaleData::_stringsTableFR;
 			break;
-		case VER_EN:
+		case LANG_EN:
 			_stringsTable = LocaleData::_stringsTableEN;
 			break;
-		case VER_DE:
+		case LANG_DE:
 			_stringsTable = LocaleData::_stringsTableDE;
 			break;
-		case VER_SP:
+		case LANG_SP:
 			_stringsTable = LocaleData::_stringsTableSP;
 			break;
 		}
 	}
 	// Load menu strings
 	_textsTable = 0;
-	if (f.open("MENUS.TXT", _dataPath, "rb")) {
+	if (f.open("MENUS.TXT", "rb", _fs)) {
 		const int offs = LocaleData::LI_NUM * sizeof(char *);
 		const int sz = f.size() + 1;
 		_extTextsTable = (char **)malloc(offs + sz);
@@ -292,17 +304,17 @@ void Resource::load_TEXT() {
 		}
 	}
 	if (!_textsTable) {
-		switch (_ver) {
-		case VER_FR:
+		switch (_lang) {
+		case LANG_FR:
 			_textsTable = LocaleData::_textsTableFR;
 			break;
-		case VER_EN:
+		case LANG_EN:
 			_textsTable = LocaleData::_textsTableEN;
 			break;
-		case VER_DE:
+		case LANG_DE:
 			_textsTable = LocaleData::_textsTableDE;
 			break;
-		case VER_SP:
+		case LANG_SP:
 			_textsTable = LocaleData::_textsTableSP;
 			break;
 		}
@@ -322,104 +334,118 @@ void Resource::free_TEXT() {
 	_textsTable = 0;
 }
 
-void Resource::load(const char *objName, int objType) {
+void Resource::load(const char *objName, int objType, const char *ext) {
 	debug(DBG_RES, "Resource::load('%s', %d)", objName, objType);
 	LoadStub loadStub = 0;
 	switch (objType) {
 	case OT_MBK:
-		debug(DBG_RES, "chargement bank (mbk)");
-		sprintf(_entryName, "%s.MBK", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.MBK", objName);
 		loadStub = &Resource::load_MBK;
 		break;
 	case OT_PGE:
-		debug(DBG_RES, "chargement piege (pge)");
-		sprintf(_entryName, "%s.PGE", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.PGE", objName);
 		loadStub = &Resource::load_PGE;
 		break;
 	case OT_PAL:
-		debug(DBG_RES, "chargement palettes (pal)");
-		sprintf(_entryName, "%s.PAL", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.PAL", objName);
 		loadStub = &Resource::load_PAL;
 		break;
 	case OT_CT:
-		debug(DBG_RES, "chargement collision (ct)");
-		sprintf(_entryName, "%s.CT", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.CT", objName);
 		loadStub = &Resource::load_CT;
 		break;
 	case OT_MAP:
-		debug(DBG_RES, "ouverture map (map)");
-		sprintf(_entryName, "%s.MAP", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.MAP", objName);
 		loadStub = &Resource::load_MAP;
 		break;
 	case OT_SPC:
-		debug(DBG_RES, "chargement sprites caracteres (spc)");
-		strcpy(_entryName, "GLOBAL.SPC");
+		snprintf(_entryName, sizeof(_entryName), "%s.SPC", objName);
 		loadStub = &Resource::load_SPC;
 		break;
 	case OT_RP:
-		debug(DBG_RES, "chargement positions des banks pour sprite_car (rp)");
-		sprintf(_entryName, "%s.RP", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.RP", objName);
+		loadStub = &Resource::load_RP;
+		break;
+	case OT_RPC:
+		snprintf(_entryName, sizeof(_entryName), "%s.RPC", objName);
 		loadStub = &Resource::load_RP;
 		break;
 	case OT_SPR:
-		debug(DBG_RES, "chargement des sprites (spr)");
-		sprintf(_entryName, "%s.SPR", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.SPR", objName);
 		loadStub = &Resource::load_SPR;
 		break;
 	case OT_SPRM:
-		debug(DBG_RES, "chargement des sprites monstre (spr)");
-		sprintf(_entryName, "%s.SPR", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.SPR", objName);
 		loadStub = &Resource::load_SPRM;
 		break;
 	case OT_ICN:
-		debug(DBG_RES, "chargement des icones (icn)");
-		sprintf(_entryName, "%s.ICN", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.ICN", objName);
 		loadStub = &Resource::load_ICN;
 		break;
 	case OT_FNT:
-		debug(DBG_RES, "chargement de la font (fnt)");
-		sprintf(_entryName, "%s.FNT", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.FNT", objName);
 		loadStub = &Resource::load_FNT;
 		break;
 	case OT_OBJ:
-		debug(DBG_RES, "chargement objets (obj)");
-		sprintf(_entryName, "%s.OBJ", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.OBJ", objName);
 		loadStub = &Resource::load_OBJ;
 		break;
 	case OT_ANI:
-		debug(DBG_RES, "chargement animations (ani)");
-		sprintf(_entryName, "%s.ANI", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.ANI", objName);
 		loadStub = &Resource::load_ANI;
 		break;
 	case OT_TBN:
-		debug(DBG_RES, "chargement des textes (tbn)");
-		sprintf(_entryName, "%s.TBN", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.TBN", objName);
 		loadStub = &Resource::load_TBN;
 		break;
 	case OT_CMD:
-		debug(DBG_RES, "chargement des commandes (cmd)");
-		sprintf(_entryName, "%s.CMD", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.CMD", objName);
 		loadStub = &Resource::load_CMD;
 		break;
 	case OT_POL:
-		debug(DBG_RES, "chargement des polygones (pol)");
-		sprintf(_entryName, "%s.POL", objName);
+		snprintf(_entryName, sizeof(_entryName), "%s.POL", objName);
 		loadStub = &Resource::load_POL;
+		break;
+	case OT_CMP:
+		snprintf(_entryName, sizeof(_entryName), "%s.CMP", objName);
+		loadStub = &Resource::load_CMP;
+		break;
+	case OT_OBC:
+		snprintf(_entryName, sizeof(_entryName), "%s.OBC", objName);
+		loadStub = &Resource::load_OBC;
+		break;
+	case OT_SPL:
+		snprintf(_entryName, sizeof(_entryName), "%s.SPL", objName);
+		loadStub = &Resource::load_SPL;
+		break;
+	case OT_LEV:
+		snprintf(_entryName, sizeof(_entryName), "%s.LEV", objName);
+		loadStub = &Resource::load_LEV;
+		break;
+	case OT_SGD:
+		snprintf(_entryName, sizeof(_entryName), "%s.SGD", objName);
+		loadStub = &Resource::load_SGD;
+		break;
+	case OT_SPM:
+		snprintf(_entryName, sizeof(_entryName), "%s.SPM", objName);
+		loadStub = &Resource::load_SPM;
 		break;
 	default:
 		error("Unimplemented Resource::load() type %d", objType);
 		break;
 	}
-	if (loadStub) {
-		File f;
-		if (f.open(_entryName, _dataPath, "rb")) {
-			(this->*loadStub)(&f);
-			if (f.ioErr()) {
-				error("I/O error when reading '%s'", _entryName);
-			}
-		} else {
-			error("Can't open '%s'", _entryName);
+	if (ext) {
+		snprintf(_entryName, sizeof(_entryName), "%s.%s", objName, ext);
+	}
+	File f;
+	if (f.open(_entryName, "rb", _fs)) {
+		assert(loadStub);
+		(this->*loadStub)(&f);
+		if (f.ioErr()) {
+			error("I/O error when reading '%s'", _entryName);
 		}
+	} else {
+		error("Can't open '%s'", _entryName);
 	}
 }
 
@@ -451,36 +477,29 @@ void Resource::load_FNT(File *f) {
 
 void Resource::load_MBK(File *f) {
 	debug(DBG_RES, "Resource::load_MBK()");
-	uint8 num = f->readByte();
-	int dataSize = f->size() - num * 6;
-	_mbk = (MbkEntry *)malloc(sizeof(MbkEntry) * num);
+	int len = f->size();
+	_mbk = (uint8 *)malloc(len);
 	if (!_mbk) {
 		error("Unable to allocate MBK buffer");
+	} else {
+		f->read(_mbk, len);
 	}
-	f->seek(0);
-	for (int i = 0; i < num; ++i) {
-		f->readUint16BE(); /* unused */
-		_mbk[i].offset = f->readUint16BE() - num * 6;
-		_mbk[i].len = f->readUint16BE();
-		debug(DBG_RES, "dataSize=0x%X entry %d off=0x%X len=0x%X", dataSize, i, _mbk[i].offset + num * 6, _mbk[i].len);
-		assert(_mbk[i].offset <= dataSize);
-	}
-	_mbkData = (uint8 *)malloc(dataSize);
-	if (!_mbkData) {
-		error("Unable to allocate MBK data buffer");
-	}
-	f->read(_mbkData, dataSize);
 }
 
 void Resource::load_ICN(File *f) {
 	debug(DBG_RES, "Resource::load_ICN()");
 	int len = f->size();
-	_icn = (uint8 *)malloc(len);
+	if (_icnLen == 0) {
+		_icn = (uint8 *)malloc(len);
+	} else {
+		_icn = (uint8 *)realloc(_icn, _icnLen + len);
+	}
 	if (!_icn) {
 		error("Unable to allocate ICN buffer");
 	} else {
-		f->read(_icn, len);
+		f->read(_icn + _icnLen, len);
 	}
+	_icnLen += len;
 }
 
 void Resource::load_SPR(File *f) {
@@ -543,21 +562,16 @@ void Resource::load_MAP(File *f) {
 
 void Resource::load_OBJ(File *f) {
 	debug(DBG_RES, "Resource::load_OBJ()");
-
-	uint16 i;
-
 	_numObjectNodes = f->readUint16LE();
 	assert(_numObjectNodes < 255);
-
 	uint32 offsets[256];
-	for (i = 0; i < _numObjectNodes; ++i) {
+	for (int i = 0; i < _numObjectNodes; ++i) {
 		offsets[i] = f->readUint32LE();
 	}
-	offsets[i] = f->size() - 2;
-
+	offsets[_numObjectNodes] = f->size() - 2;
 	int numObjectsCount = 0;
 	uint16 objectsCount[256];
-	for (i = 0; i < _numObjectNodes; ++i) {
+	for (int i = 0; i < _numObjectNodes; ++i) {
 		int diff = offsets[i + 1] - offsets[i];
 		if (diff != 0) {
 			objectsCount[numObjectsCount] = (diff - 2) / 0x12;
@@ -565,11 +579,10 @@ void Resource::load_OBJ(File *f) {
 			++numObjectsCount;
 		}
 	}
-
 	uint32 prevOffset = 0;
 	ObjectNode *prevNode = 0;
 	int iObj = 0;
-	for (i = 0; i < _numObjectNodes; ++i) {
+	for (int i = 0; i < _numObjectNodes; ++i) {
 		if (prevOffset != offsets[i]) {
 			ObjectNode *on = (ObjectNode *)malloc(sizeof(ObjectNode));
 			if (!on) {
@@ -580,7 +593,7 @@ void Resource::load_OBJ(File *f) {
 			on->num_objects = objectsCount[iObj];
 			debug(DBG_RES, "last=%d num=%d", on->last_obj_number, on->num_objects);
 			on->objects = (Object *)malloc(sizeof(Object) * on->num_objects);
-			for (uint16 j = 0; j < on->num_objects; ++j) {
+			for (int j = 0; j < on->num_objects; ++j) {
 				Object *obj = &on->objects[j];
 				obj->type = f->readUint16LE();
 				obj->dx = f->readByte();
@@ -611,16 +624,92 @@ void Resource::free_OBJ() {
 		if (_objectNodesMap[i] != prevNode) {
 			ObjectNode *curNode = _objectNodesMap[i];
 			free(curNode->objects);
-			_objectNodesMap[i] = 0;
+			free(curNode);
 			prevNode = curNode;
 		}
+		_objectNodesMap[i] = 0;
 	}
+}
+
+void Resource::load_OBC(File *f) {
+	const int packedSize = f->readUint32BE();
+	uint8 *packedData = (uint8 *)malloc(packedSize);
+	if (!packedData) {
+		error("Unable to allocate OBC temporary buffer 1");
+	}
+	f->seek(packedSize);
+	const int unpackedSize = f->readUint32BE();
+	uint8 *tmp = (uint8 *)malloc(unpackedSize);
+	if (!tmp) {
+		error("Unable to allocate OBC temporary buffer 2");
+	}
+	f->seek(4);
+	f->read(packedData, packedSize);
+	if (!delphine_unpack(tmp, packedData, packedSize)) {
+		error("Bad CRC for compressed object data");
+	}
+	free(packedData);
+	uint32 offsets[256];
+	int tmpOffset = 0;
+	_numObjectNodes = 230;
+	for (int i = 0; i < _numObjectNodes; ++i) {
+		offsets[i] = READ_BE_UINT32(tmp + tmpOffset); tmpOffset += 4;
+	}
+	offsets[_numObjectNodes] = unpackedSize;
+	int numObjectsCount = 0;
+	uint16 objectsCount[256];
+	for (int i = 0; i < _numObjectNodes; ++i) {
+		int diff = offsets[i + 1] - offsets[i];
+		if (diff != 0) {
+			objectsCount[numObjectsCount] = (diff - 2) / 0x12;
+			++numObjectsCount;
+		}
+	}
+	uint32 prevOffset = 0;
+	ObjectNode *prevNode = 0;
+	int iObj = 0;
+	for (int i = 0; i < _numObjectNodes; ++i) {
+		if (prevOffset != offsets[i]) {
+			ObjectNode *on = (ObjectNode *)malloc(sizeof(ObjectNode));
+			if (!on) {
+				error("Unable to allocate ObjectNode num=%d", i);
+			}
+			const uint8 *objData = tmp + offsets[i];
+			on->last_obj_number = READ_BE_UINT16(objData); objData += 2;
+			on->num_objects = objectsCount[iObj];
+			on->objects = (Object *)malloc(sizeof(Object) * on->num_objects);
+			for (int j = 0; j < on->num_objects; ++j) {
+				Object *obj = &on->objects[j];
+				obj->type = READ_BE_UINT16(objData); objData += 2;
+				obj->dx = *objData++;
+				obj->dy = *objData++;
+				obj->init_obj_type = READ_BE_UINT16(objData); objData += 2;
+				obj->opcode2 = *objData++;
+				obj->opcode1 = *objData++;
+				obj->flags = *objData++;
+				obj->opcode3 = *objData++;
+				obj->init_obj_number = READ_BE_UINT16(objData); objData += 2;
+				obj->opcode_arg1 = READ_BE_UINT16(objData); objData += 2;
+				obj->opcode_arg2 = READ_BE_UINT16(objData); objData += 2;
+				obj->opcode_arg3 = READ_BE_UINT16(objData); objData += 2;
+				debug(DBG_RES, "obj_node=%d obj=%d op1=0x%X op2=0x%X op3=0x%X", i, j, obj->opcode2, obj->opcode1, obj->opcode3);
+			}
+			++iObj;
+			prevOffset = offsets[i];
+			prevNode = on;
+		}
+		_objectNodesMap[i] = prevNode;
+	}
+	free(tmp);
 }
 
 void Resource::load_PGE(File *f) {
 	debug(DBG_RES, "Resource::load_PGE()");
 	int len = f->size() - 2;
 	_pgeNum = f->readUint16LE();
+	if (_type == kResourceTypeAmiga) {
+		SWAP_UINT16(&_pgeNum);
+	}
 	memset(_pgeInit, 0, sizeof(_pgeInit));
 	debug(DBG_RES, "len=%d _pgeNum=%d", len, _pgeNum);
 	for (uint16 i = 0; i < _pgeNum; ++i) {
@@ -645,8 +734,21 @@ void Resource::load_PGE(File *f) {
 		pge->flags = f->readByte();
 		pge->unk1C = f->readByte();
 		f->readByte();
-		pge->text_num = f->readByte();
-		f->readByte();
+		pge->text_num = f->readUint16LE();
+	}
+	if (_type == kResourceTypeAmiga) {
+		for (uint16 i = 0; i < _pgeNum; ++i) {
+			InitPGE *pge = &_pgeInit[i];
+			SWAP_UINT16((uint16 *)&pge->type);
+			SWAP_UINT16((uint16 *)&pge->pos_x);
+			SWAP_UINT16((uint16 *)&pge->pos_y);
+			SWAP_UINT16((uint16 *)&pge->obj_node_number);
+			SWAP_UINT16((uint16 *)&pge->life);
+			for (int lc = 0; lc < 4; ++lc) {
+				SWAP_UINT16((uint16 *)&pge->counter_values[lc]);
+			}
+			SWAP_UINT16((uint16 *)&pge->text_num);
+		}
 	}
 }
 
@@ -657,8 +759,33 @@ void Resource::load_ANI(File *f) {
 	if (!_ani) {
 		error("Unable to allocate ANI buffer");
 	} else {
-		f->seek(2);
+		uint16 count = f->readUint16LE();
 		f->read(_ani, size);
+		if (_type == kResourceTypeAmiga) {
+			const uint8 *end = _ani + size;
+			SWAP_UINT16(&count);
+			// byte-swap animation data
+			for (uint16 i = 0; i < count; ++i) {
+				uint8 *p = _ani + READ_BE_UINT16(_ani + 2 * i);
+				// byte-swap offset
+				SWAP<uint8>(_ani[2 * i], _ani[2 * i + 1]);
+				if (p >= end) {
+					continue;
+				}
+				const int frames = READ_BE_UINT16(p);
+				if (p[0] != 0) {
+					// byte-swap only once
+					continue;
+				}
+				// byte-swap anim count
+				SWAP<uint8>(p[0], p[1]);
+				debug(DBG_RES, "ani=%d frames=%d", i, frames);
+				for (int j = 0; j < frames; ++j) {
+					// byte-swap next frame
+					SWAP<uint8>(p[6 + j * 4], p[6 + j * 4 + 1]);
+				}
+			}
+		}
 	}
 }
 
@@ -670,6 +797,13 @@ void Resource::load_TBN(File *f) {
 		error("Unable to allocate TBN buffer");
 	} else {
 		f->read(_tbn, len);
+	}
+	if (_type == kResourceTypeAmiga) {
+		const int firstOffset = READ_BE_UINT16(_tbn);
+		for (int i = 0; i < firstOffset; i += 2) {
+			// byte-swap offset
+			SWAP<uint8>(_tbn[i], _tbn[i + 1]);
+		}
 	}
 }
 
@@ -697,6 +831,52 @@ void Resource::load_POL(File *pf) {
 	}
 }
 
+void Resource::load_CMP(File *pf) {
+	free(_pol);
+	free(_cmd);
+	int len = pf->size();
+	uint8 *tmp = (uint8 *)malloc(len);
+	if (!tmp) {
+		error("Unable to allocate CMP buffer");
+	}
+	pf->read(tmp, len);
+	struct {
+		int offset, packedSize, size;
+	} data[2];
+	int offset = 0;
+	for (int i = 0; i < 2; ++i) {
+		int packedSize = READ_BE_UINT32(tmp + offset); offset += 4;
+		assert((packedSize & 1) == 0);
+		if (packedSize < 0) {
+			data[i].size = packedSize = -packedSize;
+		} else {
+			data[i].size = READ_BE_UINT32(tmp + offset + packedSize - 4);
+		}
+		data[i].offset = offset;
+		data[i].packedSize = packedSize;
+		offset += packedSize;
+	}
+	_pol = (uint8 *)malloc(data[0].size);
+	if (!_pol) {
+		error("Unable to allocate POL buffer");
+	}
+	if (data[0].packedSize == data[0].size) {
+		memcpy(_pol, tmp + data[0].offset, data[0].packedSize);
+	} else if (!delphine_unpack(_pol, tmp + data[0].offset, data[0].packedSize)) {
+		error("Bad CRC for cutscene polygon data");
+	}
+	_cmd = (uint8 *)malloc(data[1].size);
+	if (!_cmd) {
+		error("Unable to allocate CMD buffer");
+	}
+	if (data[1].packedSize == data[1].size) {
+		memcpy(_cmd, tmp + data[1].offset, data[1].packedSize);
+	} else if (!delphine_unpack(_cmd, tmp + data[1].offset, data[1].packedSize)) {
+		error("Bad CRC for cutscene command data");
+	}
+	free(tmp);
+}
+
 void Resource::load_VCE(int num, int segment, uint8 **buf, uint32 *bufSize) {
 	*buf = 0;
 	int offset = _voicesOffsetsTable[num];
@@ -706,12 +886,11 @@ void Resource::load_VCE(int num, int segment, uint8 **buf, uint32 *bufSize) {
 		int count = *p++;
 		if (segment < count) {
 			File f;
-			if (f.open("VOICE.VCE", _dataPath, "rb")) {
+			if (f.open("VOICE.VCE", "rb", _fs)) {
 				int voiceSize = p[segment] * 2048 / 5;
-				free(_voiceBuf);
-				_voiceBuf = (uint8 *)malloc(voiceSize);
-				if (_voiceBuf) {
-					uint8 *dst = _voiceBuf;
+				uint8 *voiceBuf = (uint8 *)malloc(voiceSize);
+				if (voiceBuf) {
+					uint8 *dst = voiceBuf;
 					offset += 0x2000;
 					for (int s = 0; s < count; ++s) {
 						int len = p[s] * 2048;
@@ -733,10 +912,165 @@ void Resource::load_VCE(int num, int segment, uint8 **buf, uint32 *bufSize) {
 							break;
 						}
 					}
-					*buf = _voiceBuf;
+					*buf = voiceBuf;
 					*bufSize = voiceSize;
 				}
 			}
 		}
 	}
 }
+
+void Resource::load_SPL(File *f) {
+	for (int i = 0; i < _numSfx; ++i) {
+		free(_sfxList[i].data);
+	}
+	free(_sfxList);
+	_numSfx = 66;
+	_sfxList = (SoundFx *)calloc(_numSfx, sizeof(SoundFx));
+	if (!_sfxList) {
+		error("Unable to allocate SoundFx table");
+	}
+	int offset = 0;
+	for (int i = 0; i < _numSfx; ++i) {
+		const int size = f->readUint16BE(); offset += 2;
+		if ((size & 0x8000) != 0) {
+			continue;
+		}
+		debug(DBG_RES, "sfx=%d size=%d", i, size);
+		assert(size != 0 && (size & 1) == 0);
+		if (i != 64) {
+			_sfxList[i].offset = offset;
+			_sfxList[i].len = size;
+			_sfxList[i].data = (uint8 *)malloc(size);
+			assert(_sfxList[i].data);
+			f->read(_sfxList[i].data, size);
+		} else {
+			f->seek(offset + size);
+		}
+		offset += size;
+	}
+}
+
+void Resource::load_LEV(File *f) {
+	const int len = f->size();
+	_lev = (uint8 *)malloc(len);
+	if (!_lev) {
+		error("Unable to allocate LEV buffer");
+	} else {
+		f->read(_lev, len);
+	}
+}
+
+void Resource::load_SGD(File *f) {
+	const int len = f->size();
+	f->seek(len - 4);
+	int size = f->readUint32BE();
+	f->seek(0);
+	uint8 *tmp = (uint8 *)malloc(len);
+	if (!tmp) {
+		error("Unable to allocate SGD temporary buffer");
+	}
+	f->read(tmp, len);
+	_sgd = (uint8 *)malloc(size);
+	if (!_sgd) {
+		error("Unable to allocate SGD buffer");
+	}
+	if (!delphine_unpack(_sgd, tmp, len)) {
+		error("Bad CRC for SGD data");
+	}
+	free(tmp);
+}
+
+void Resource::load_SPM(File *f) {
+	static const int kPersoDatSize = 178647;
+	const int len = f->size();
+	f->seek(len - 4);
+	int size = f->readUint32BE();
+	f->seek(0);
+	uint8 *tmp = (uint8 *)malloc(len);
+	if (!tmp) {
+		error("Unable to allocate SPM temporary buffer");
+	}
+	f->read(tmp, len);
+	int sprOffset = 0;
+	if (size == kPersoDatSize) {
+		_spr1 = (uint8 *)malloc(size);
+	} else {
+		sprOffset = kPersoDatSize;
+		_spr1 = (uint8 *)realloc(_spr1, sprOffset + size);
+	}
+	if (!_spr1) {
+		error("Unable to allocate SPM buffer");
+	}
+	if (!delphine_unpack(_spr1 + sprOffset, tmp, len)) {
+		error("Bad CRC for SPM data");
+	}
+	free(tmp);
+	for (int i = 0; i < 1287; ++i) {
+		_spr_off[i] = _spr1 + _spmOffsetsTable[i];
+	}
+}
+
+void Resource::clearBankData() {
+	_bankBuffersCount = 0;
+	_bankDataHead = _bankData;
+}
+
+int Resource::getBankDataSize(uint16 num) {
+	int len = READ_BE_UINT16(_mbk + num * 6 + 4);
+	int size = 0;
+	switch (_type) {
+	case kResourceTypeAmiga:
+		if (len & 0x8000) {
+			len = -(int16)len;
+		}
+		size = len * 32;
+		break;
+	case kResourceTypePC:
+		size = (len & 0x7FFF) * 32;
+		break;
+	}
+	return size;
+}
+
+uint8 *Resource::findBankData(uint16 num) {
+	for (int i = 0; i < _bankBuffersCount; ++i) {
+		if (_bankBuffers[i].entryNum == num) {
+			return _bankBuffers[i].ptr;
+		}
+	}
+	return 0;
+}
+
+uint8 *Resource::loadBankData(uint16 num) {
+	const uint8 *ptr = _mbk + num * 6;
+	int dataOffset = READ_BE_UINT32(ptr);
+	if (_type == kResourceTypePC) {
+		// first byte of the data buffer corresponds
+		// to the total count of entries
+		dataOffset &= 0xFFFF;
+	}
+	const int size = getBankDataSize(num);
+	const int avail = _bankDataTail - _bankDataHead;
+	if (avail < size) {
+		clearBankData();
+	}
+	assert(_bankDataHead + size <= _bankDataTail);
+	assert(_bankBuffersCount < (int)ARRAYSIZE(_bankBuffers));
+	_bankBuffers[_bankBuffersCount].entryNum = num;
+	_bankBuffers[_bankBuffersCount].ptr = _bankDataHead;
+	const uint8 *data = _mbk + dataOffset;
+	if (READ_BE_UINT16(ptr + 4) & 0x8000) {
+		memcpy(_bankDataHead, data, size);
+	} else {
+		assert(dataOffset > 4);
+		assert(size == (int)READ_BE_UINT32(data - 4));
+		if (!delphine_unpack(_bankDataHead, data, 0)) {
+			error("Bad CRC for bank data %d", num);
+		}
+	}
+	uint8 *bankData = _bankDataHead;
+	_bankDataHead += size;
+	return bankData;
+}
+

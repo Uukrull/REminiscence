@@ -1,34 +1,36 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __GAME_H__
-#define __GAME_H__
+#ifndef GAME_H__
+#define GAME_H__
 
 #include "intern.h"
 #include "cutscene.h"
+#include "fs.h"
 #include "menu.h"
 #include "mixer.h"
 #include "mod_player.h"
 #include "resource.h"
+#include "seq_player.h"
 #include "sfx_player.h"
 #include "video.h"
 
 struct File;
+struct FileSystem;
 struct SystemStub;
 
 struct Game {
@@ -55,7 +57,7 @@ struct Game {
 	static const uint8 _monsterListLevel5_2[];
 	static const uint8 *_monsterListLevels[];
 	static const uint8 _monsterPals[4][32];
-	static const char *_monsterNames[];
+	static const char *_monsterNames[2][4];
 	static const pge_OpcodeProc _pge_opcodeTable[];
 	static const uint8 _pge_modKeysTable[];
 	static const uint8 _protectionCodeData[];
@@ -66,9 +68,11 @@ struct Game {
 	Mixer _mix;
 	ModPlayer _modPly;
 	Resource _res;
+	SeqPlayer _seqPly;
 	SfxPlayer _sfxPly;
 	Video _vid;
 	SystemStub *_stub;
+	FileSystem *_fs;
 	const char *_savePath;
 
 	const uint8 *_stringsTable;
@@ -92,25 +96,19 @@ struct Game {
 	AnimBufferState _animBuffer2State[42];
 	AnimBufferState _animBuffer3State[12];
 	AnimBuffers _animBuffers;
-	uint8 _bankData[0x7000];
-	uint8 *_firstBankData;
-	uint8 *_lastBankData;
-	BankSlot _bankSlots[49];
-	BankSlot *_curBankSlot;
-	const uint8 *_bankDataPtrs;
 	uint16 _deathCutsceneCounter;
 	bool _saveStateCompleted;
 
-	Game(SystemStub *, const char *dataPath, const char *savePath, Version ver);
+	Game(SystemStub *, FileSystem *, const char *savePath, int level, ResourceType ver, Language lang);
 
 	void run();
 	void resetGameState();
 	void mainLoop();
 	void updateTiming();
 	void playCutscene(int id = -1);
+	bool playCutsceneSeq(const char *name);
 	void loadLevelMap();
 	void loadLevelData();
-	void start();
 	void drawIcon(uint8 iconNum, int16 x, int16 y, uint8 colMask);
 	void drawCurrentInventoryItem();
 	void printLevelCode();
@@ -126,17 +124,15 @@ struct Game {
 	void drawAnims();
 	void drawAnimBuffer(uint8 stateNum, AnimBufferState *state);
 	void drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
-	void drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
+	void drawObjectFrame(const uint8 *bankDataPtr, const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
 	void decodeCharacterFrame(const uint8 *dataPtr, uint8 *dstPtr);
 	void drawCharacter(const uint8 *dataPtr, int16 x, int16 y, uint8 a, uint8 b, uint8 flags);
-	uint8 *loadBankData(uint16 MbkEntryNum);
 	int loadMonsterSprites(LivePGE *pge);
 	void playSound(uint8 sfxId, uint8 softVol);
 	uint16 getRandomNumber();
 	void changeLevel();
 	uint16 getLineLength(const uint8 *str) const;
 	void handleInventory();
-	uint8 *findBankData(uint16 entryNum);
 
 
 	// pieges
@@ -388,4 +384,4 @@ struct Game {
 	void loadState(File *f);
 };
 
-#endif // __GAME_H__
+#endif // GAME_H__

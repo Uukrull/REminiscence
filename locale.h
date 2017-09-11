@@ -1,23 +1,22 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2006 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __LOCALE_H__
-#define __LOCALE_H__
+#ifndef LOCALE_H__
+#define LOCALE_H__
 
 #include "intern.h"
 
@@ -45,7 +44,7 @@ struct Locale {
 		LI_20_LOAD_GAME,
 		LI_21_SAVE_GAME,
 		LI_22_SAVE_SLOT,
-		
+
 		LI_NUM
 	};
 
@@ -57,13 +56,13 @@ struct Locale {
 	static const uint8 _stringsTableEN[];
 	static const uint8 _stringsTableDE[];
 	static const uint8 _stringsTableSP[];
-	
+
 	Version _ver;
 	const char **_textsTable;
 	const uint8 *_stringsTable;
-	
+
 	Locale(Version ver);
 	const char *get(int id) const;
 };
 
-#endif // __LOCALE_H__
+#endif // LOCALE_H__

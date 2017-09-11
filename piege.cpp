@@ -1,19 +1,18 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "cutscene.h"
@@ -133,7 +132,7 @@ void Game::pge_process(LivePGE *pge) {
 	if (le) {
 		pge_setupNextAnimFrame(pge, le);
 	}
-	const uint8 *anim_data = _res._ani + READ_LE_UINT16(_res._ani + 2 * pge->obj_type);
+	const uint8 *anim_data = _res.getAniData(pge->obj_type);
 	if (READ_LE_UINT16(anim_data) <= pge->anim_seq) {
 		InitPGE *init_pge = pge->init_PGE;
 		assert(init_pge->obj_node_number < _res._numObjectNodes);
@@ -146,7 +145,7 @@ void Game::pge_process(LivePGE *pge) {
 			}
 			uint16 _ax = pge_execute(pge, init_pge, obj);
 			if (_ax != 0) {
-				anim_data = _res._ani + READ_LE_UINT16(_res._ani + 2 * pge->obj_type);
+				anim_data = _res.getAniData(pge->obj_type);
 				uint8 snd = anim_data[2];
 				if (snd) {
 					pge_playAnimSound(pge, snd);
@@ -200,8 +199,8 @@ void Game::pge_setupNextAnimFrame(LivePGE *pge, GroupPGE *le) {
 	return;
 
 set_anim:
-	const uint8 *anim_data = _res._ani + READ_LE_UINT16(_res._ani + pge->obj_type * 2);
-	uint8 _dh = anim_data[0];
+	const uint8 *anim_data = _res.getAniData(pge->obj_type);
+	uint8 _dh = READ_LE_UINT16(anim_data);
 	uint8 _dl = pge->anim_seq;
 	const uint8 *anim_frame = anim_data + 6 + _dl * 4;
 	while (_dh > _dl) {
@@ -239,8 +238,8 @@ void Game::pge_playAnimSound(LivePGE *pge, uint16 arg2) {
 
 void Game::pge_setupAnim(LivePGE *pge) {
 	debug(DBG_PGE, "Game::pge_setupAnim() pgeNum=%d", pge - &_pgeLive[0]);
-	const uint8 *anim_data = _res._ani + READ_LE_UINT16(_res._ani + pge->obj_type * 2);
-	if (anim_data[0] < pge->anim_seq) {
+	const uint8 *anim_data = _res.getAniData(pge->obj_type);
+	if (READ_LE_UINT16(anim_data) < pge->anim_seq) {
 		pge->anim_seq = 0;
 	}
 	const uint8 *anim_frame = anim_data + 6 + pge->anim_seq * 4;
@@ -258,7 +257,7 @@ void Game::pge_setupAnim(LivePGE *pge) {
 			pge->flags |= 2;
 		}
 		pge->flags &= ~8;
-		if (READ_LE_UINT16(anim_data + 4) & 0xFF) {
+		if (READ_LE_UINT16(anim_data + 4) & 0xFFFF) {
 			pge->flags |= 8;
 		}
 		pge->anim_number = READ_LE_UINT16(anim_frame) & 0x7FFF;
@@ -371,8 +370,8 @@ void Game::pge_prepare() {
 }
 
 void Game::pge_setupDefaultAnim(LivePGE *pge) {
-	const uint8 *anim_data = _res._ani + READ_LE_UINT16(_res._ani + pge->obj_type * 2);
-	if (pge->anim_seq < anim_data[0]) {
+	const uint8 *anim_data = _res.getAniData(pge->obj_type);
+	if (pge->anim_seq < READ_LE_UINT16(anim_data)) {
 		pge->anim_seq = 0;
 	}
 	const uint8 *anim_frame = anim_data + 6 + pge->anim_seq * 4;
@@ -2173,8 +2172,7 @@ void Game::pge_removeFromInventory(LivePGE *pge1, LivePGE *pge2, LivePGE *pge3) 
 
 int Game::pge_ZOrderByAnimY(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2) {
 	if (pge1 != pge2) {
-		uint16 off = READ_LE_UINT16(_res._ani + pge1->obj_type * 2);
-		if (_res._ani[off + 3] == comp) {
+		if (_res.getAniData(pge1->obj_type)[3] == comp) {
 			return 1;
 		}
 	}
@@ -2183,8 +2181,7 @@ int Game::pge_ZOrderByAnimY(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp
 
 int Game::pge_ZOrderByAnimYIfType(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2) {
 	if (pge1->init_PGE->object_type == comp2) {
-		uint16 off = READ_LE_UINT16(_res._ani + pge1->obj_type * 2);
-		if (_res._ani[off + 3] == comp) {
+		if (_res.getAniData(pge1->obj_type)[3] == comp) {
 			return 1;
 		}
 	}

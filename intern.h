@@ -1,39 +1,36 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2007 Gregory Montoir
+ * Copyright (C) 2005-2011 Gregory Montoir
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __INTERN_H__
-#define __INTERN_H__
+#ifndef INTERN_H__
+#define INTERN_H__
 
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <cassert>
+#include <stdint.h>
 
 #include "sys.h"
 #include "util.h"
 
+#define ABS(x) ((x)<0?-(x):(x))
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define ARRAYSIZE(a) (sizeof(a)/sizeof(a[0]))
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 template<typename T>
 inline void SWAP(T &a, T &b) {
@@ -42,11 +39,16 @@ inline void SWAP(T &a, T &b) {
 	b = tmp;
 }
 
-enum Version {
-	VER_FR,
-	VER_EN,
-	VER_DE,
-	VER_SP
+enum Language {
+	LANG_FR,
+	LANG_EN,
+	LANG_DE,
+	LANG_SP
+};
+
+enum ResourceType {
+	kResourceTypeAmiga,
+	kResourceTypePC
 };
 
 struct Color {
@@ -63,7 +65,9 @@ struct Point {
 struct Level {
 	const char *name;
 	const char *name2;
+	const char *nameAmiga;
 	uint16 cutscene_id;
+	uint8 spl;
 };
 
 struct InitPGE {
@@ -84,7 +88,7 @@ struct InitPGE {
 	uint8 mirror_x;
 	uint8 flags;
 	uint8 unk1C; // collidable, collision_data_len
-	uint8 text_num;
+	uint16 text_num;
 };
 
 struct LivePGE {
@@ -141,8 +145,8 @@ struct ObjectOpcodeArgs {
 };
 
 struct AnimBufferState {
-	int16 x;
-	int16 y;
+	int16 x, y;
+	uint8 w, h;
 	const uint8 *dataPtr;
 	LivePGE *pge;
 };
@@ -151,7 +155,7 @@ struct AnimBuffers {
 	AnimBufferState *_states[4];
 	uint8 _curPos[4];
 
-	void addState(uint8 stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge);
+	void addState(uint8 stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge, uint8 w = 0, uint8 h = 0);
 };
 
 struct CollisionSlot {
@@ -159,11 +163,6 @@ struct CollisionSlot {
 	CollisionSlot *prev_slot;
 	LivePGE *live_pge;
 	uint16 index;
-};
-
-struct MbkEntry {
-	uint16 offset;
-	uint16 len;
 };
 
 struct BankSlot {
@@ -190,4 +189,4 @@ struct SoundFx {
 	uint8 *data;
 };
 
-#endif // __INTERN_H__
+#endif // INTERN_H__
