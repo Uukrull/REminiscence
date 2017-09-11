@@ -24,7 +24,7 @@
 Resource::Resource(const char *dataPath) {
 	memset(this, 0, sizeof(Resource));
 	_dataPath = dataPath;
-	_memBuf = (uint8 *)malloc(600 * 1024); // XXX reconsider this value
+	_memBuf = (uint8 *)malloc(100 * 1024); // XXX reconsider this value
 }
 
 Resource::~Resource() {
@@ -34,6 +34,13 @@ Resource::~Resource() {
 	free(_tab);
 	free(_spr1);
 	free(_memBuf);
+	free(_cmd);
+	free(_pol);
+	free(_cine_off);
+	free(_cine_txt);
+	for (int i = 0; i < _numSfx; ++i) {
+		free(_sfxList[i].data);
+	}	
 }
 
 void Resource::clearLevelRes() {	
@@ -45,6 +52,59 @@ void Resource::clearLevelRes() {
 	free(_spc); _spc = 0;
 	free(_ani); _ani = 0;
 	free_OBJ();
+}
+
+void Resource::load_FIB(const char *fileName) {
+	debug(DBG_RES, "Resource::load_FIB('%s')", fileName);
+	static const uint8 waveTable[] = {
+		0xDE, 0xEB, 0xF3, 0xF8, 0xFB, 0xFD, 0xFE, 0xFF,
+		0x00, 0x01, 0x02, 0x03, 0x05, 0x08, 0x0D, 0x15
+	};
+	sprintf(_entryName, "%s.fib", fileName);
+	File f;
+	if (f.open(_entryName, _dataPath, "rb")) {
+		_numSfx = f.readUint16LE();
+		assert(_numSfx <= 0x42);
+		int i;
+		for (i = 0; i < _numSfx; ++i) {
+			SoundFx *sfx = &_sfxList[i];
+			sfx->offset = f.readUint32LE();
+			sfx->len = f.readUint16LE();
+			sfx->data = 0;
+		}
+		for (i = 0; i < _numSfx; ++i) {
+			SoundFx *sfx = &_sfxList[i];
+			if (sfx->len == 0) {
+				continue;
+			}
+			f.seek(sfx->offset);
+			uint8 *tmp = (uint8 *)malloc(sfx->len);
+			assert(tmp);
+			f.read(tmp, sfx->len);
+			uint8 *data = (uint8 *)malloc(sfx->len * 2);
+			assert(data);
+			sfx->data = data;
+			uint8 *src = tmp;
+			uint8 c = *src++;
+			*data++ = c;
+			*data++ = c;
+			uint16 sz = sfx->len - 1;
+			while (sz--) {
+				uint8 d = *src++;
+				c += waveTable[(d & 0xF0) >> 4];
+				*data++ = c;
+				c += waveTable[(d & 0x0F) >> 0];
+				*data++ = c;
+			}
+			sfx->len *= 2;
+			free(tmp);
+		}		
+		if (f.ioErr()) {
+			error("i/o error when reading '%s'", _entryName);
+		}		
+	} else {
+		error("Can't open '%s'", _entryName);
+	}
 }
 
 void Resource::load_MAP_menu(const char *fileName, uint8 *dstPtr) {
@@ -106,9 +166,43 @@ void Resource::load_SPR_OFF(const char *fileName, uint8 *sprData) {
 	}
 }
 
+void Resource::load_CINE(const char *fileName) {
+	debug(DBG_RES, "Resource::load_CINE('%s')", fileName);
+	if (_cine_off == 0) {
+		sprintf(_entryName, "%s.bin", fileName);
+		File f;
+		if (f.open(_entryName, _dataPath, "rb")) {
+			int len = f.size();
+			_cine_off = (uint8 *)malloc(len);
+			assert(_cine_off);
+			f.read(_cine_off, len);
+			if (f.ioErr()) {
+				error("i/o error when reading '%s'", _entryName);
+			}
+		} else {
+			error("Can't open '%s'", _entryName);
+		}
+	}
+	if (_cine_txt == 0) {
+		sprintf(_entryName, "%s.txt", fileName);
+		File f;
+		if (f.open(_entryName, _dataPath, "rb")) {
+			int len = f.size();
+			_cine_txt = (uint8 *)malloc(len);
+			assert(_cine_txt);
+			f.read(_cine_txt, len);
+			if (f.ioErr()) {
+				error("i/o error when reading '%s'", _entryName);
+			}
+		} else {
+			error("Can't open '%s'", _entryName);
+		}
+	}	
+}
+
 void Resource::load(const char *objName, int objType) {
 	debug(DBG_RES, "Resource::load('%s', %d)", objName, objType);
-	LoadStub loadStub = NULL;
+	LoadStub loadStub = 0;
 	switch (objType) {
 	case OT_MBK:
 		debug(DBG_RES, "chargement bank (mbk)");
@@ -162,7 +256,7 @@ void Resource::load(const char *objName, int objType) {
 		break;
 	case OT_FNT:
 		debug(DBG_RES, "chargement de la font (fnt)");
-		strcpy(_entryName, objName);
+		sprintf(_entryName, "%s.fnt", objName);
 		loadStub = &Resource::load_FNT;
 		break;
 	case OT_OBJ:
@@ -179,6 +273,16 @@ void Resource::load(const char *objName, int objType) {
 		debug(DBG_RES, "chargement des textes (tbn)");
 		sprintf(_entryName, "%s.tbn", objName);
 		loadStub = &Resource::load_TBN;
+		break;
+	case OT_CMD:
+		debug(DBG_RES, "chargement des commandes (cmd)");
+		sprintf(_entryName, "%s.cmd", objName);
+		loadStub = &Resource::load_CMD;
+		break;
+	case OT_POL:
+		debug(DBG_RES, "chargement des polygones (pol)");
+		sprintf(_entryName, "%s.pol", objName);
+		loadStub = &Resource::load_POL;
 		break;
 	default:
 		error("unimplemented Resource::load() type %d", objType);
@@ -318,7 +422,7 @@ void Resource::load_OBJ(File *f) {
 	}
 	
 	uint32 prevOffset = 0;
-	ObjectNode *prevNode = NULL;
+	ObjectNode *prevNode = 0;
 	int iObj = 0;
 	for (i = 0; i < _numObjectNodes; ++i) {
 		if (prevOffset != offsets[i]) {
@@ -401,14 +505,32 @@ void Resource::load_TBN(File *f) {
 	f->read(_tbn, len);
 }
 
+void Resource::load_CMD(File *pf) {
+	debug(DBG_RES, "Resource::load_CMD()");
+	free(_cmd);
+	int len = pf->size();
+	_cmd = (uint8 *)malloc(len);
+	assert(_cmd);
+	pf->read(_cmd, len);
+}
+
+void Resource::load_POL(File *pf) {
+	debug(DBG_RES, "Resource::load_POL()");
+	free(_pol);
+	int len = pf->size();
+	_pol = (uint8 *)malloc(len);
+	assert(_pol);
+	pf->read(_pol, len);
+}
+
 void Resource::free_OBJ() {
 	debug(DBG_RES, "Resource::free_OBJ()");
-	ObjectNode *prevNode = NULL;
+	ObjectNode *prevNode = 0;
 	for (int i = 0; i < _numObjectNodes; ++i) {
 		if (_objectNodesMap[i] != prevNode) {
 			ObjectNode *curNode = _objectNodesMap[i];
 			free(curNode->objects);
-			_objectNodesMap[i] = NULL;
+			_objectNodesMap[i] = 0;
 			prevNode = curNode;
 		}
 	}

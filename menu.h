@@ -46,6 +46,7 @@ struct Menu {
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
+	Version _ver;
 	
 	const char **_textOptions;
 	uint8 _charVar1;
@@ -54,7 +55,7 @@ struct Menu {
 	uint8 _charVar4;
 	uint8 _charVar5;
 	
-	Menu(Resource *res, SystemStub *stub, Video *vid);
+	Menu(Resource *res, SystemStub *stub, Video *vid, Version ver);
 
 	void drawString(const char *str, int16 y, int16 x, uint8 color);
 	void drawString2(const char *t, int16 y, int16 x);

@@ -75,14 +75,22 @@ struct Resource {
 	uint16 _numObjectNodes;
 	ObjectNode *_objectNodesMap[255];
 	uint8 *_memBuf;
+	SoundFx _sfxList[0x42];
+	uint8 _numSfx;
+	uint8 *_cmd;
+	uint8 *_pol;
+	uint8 *_cine_off;
+	uint8 *_cine_txt;
 	
 	Resource(const char *dataPath);
 	~Resource();
 	
 	void clearLevelRes();
+	void load_FIB(const char *fileName);
 	void load_MAP_menu(const char *fileName, uint8 *dstPtr);
 	void load_PAL_menu(const char *fileName, uint8 *dstPtr);
 	void load_SPR_OFF(const char *fileName, uint8 *sprData);
+	void load_CINE(const char *fileName);
 	void load(const char *objName, int objType);
 	void load_CT(File *pf);
 	void load_FNT(File *pf);
@@ -98,6 +106,8 @@ struct Resource {
 	void load_PGE(File *pf);
 	void load_ANI(File *pf);
 	void load_TBN(File *pf);
+	void load_CMD(File *pf);
+	void load_POL(File *pf);
 	void free_OBJ();
 };
 

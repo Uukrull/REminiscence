@@ -22,6 +22,7 @@
 #include "intern.h"
 #include "cutscene.h"
 #include "menu.h"
+#include "mixer.h"
 #include "resource.h"
 #include "video.h"
 
@@ -33,11 +34,6 @@ struct Game {
 	typedef int (Game::*col_Callback1)(LivePGE *, LivePGE *, int16, int16);
 	typedef int (Game::*col_Callback2)(LivePGE *, int16, int16, int16);
 
-	enum Version {
-		VER_FR,
-		VER_EN
-	};
-	
 	enum {
 		CT_LEFT_ROOM  = 0xC0,
 		CT_RIGHT_ROOM = 0x80,
@@ -59,75 +55,80 @@ struct Game {
 	static const char *_monsterNames[];
 	static const uint8 _stringsTableFR[];
 	static const uint8 _stringsTableEN[];
+	static const char *_textsTableFR[];
+	static const char *_textsTableEN[];
 	static const pge_OpcodeProc _pge_opcodeTable[];
 	static const uint8 _pge_modKeysTable[];
 	
 	Cutscene _cut;
 	Menu _menu;
+	Mixer _mix;
 	Resource _res;
 	Video _vid;
 	SystemStub *_stub;
 	Version _ver;
 	
 	const uint8 *_stringsTable;
-	uint8 _game_currentLevel;
-	uint8 _game_skillLevel;
-	uint32 _game_prevScore, _game_score;
-	uint8 _game_currentRoom;
-	uint8 _game_currentIcon;
-	bool _game_loadMap;
-	uint8 _game_printLevelCodeCounter;
-	uint32 _game_randSeed;
-	uint16 _game_currentInventoryIconNum;
-	uint16 _game_curMonsterFrame;
-	uint16 _game_curMonsterNum;
-	uint8 _game_blinkingConradCounter;
-	uint16 _game_textToDisplay;
-	bool _game_eraseBackground;
-	AnimBufferState _game_animBuffer0State[41];
-	AnimBufferState _game_animBuffer1State[6]; // Conrad
-	AnimBufferState _game_animBuffer2State[42];
-	AnimBufferState _game_animBuffer3State[12];
-	AnimBuffers _game_animBuffers;
-	uint8 _game_bankData[0x7000];
-	uint8 *_game_firstBankData;
-	uint8 *_game_lastBankData;
-	BankSlot _game_bankSlots[49];
-	BankSlot *_game_curBankSlot;
-	const uint8 *_game_bankDataPtrs;
-	uint16 _game_deathCutsceneCounter;
-	bool _game_saveStateCompleted;
+	const char **_textsTable;
+	uint8 _currentLevel;
+	uint8 _skillLevel;
+	uint32 _prevScore, _score;
+	uint8 _currentRoom;
+	uint8 _currentIcon;
+	bool _loadMap;
+	uint8 _printLevelCodeCounter;
+	uint32 _randSeed;
+	uint16 _currentInventoryIconNum;
+	uint16 _curMonsterFrame;
+	uint16 _curMonsterNum;
+	uint8 _blinkingConradCounter;
+	uint16 _textToDisplay;
+	bool _eraseBackground;
+	AnimBufferState _animBuffer0State[41];
+	AnimBufferState _animBuffer1State[6]; // Conrad
+	AnimBufferState _animBuffer2State[42];
+	AnimBufferState _animBuffer3State[12];
+	AnimBuffers _animBuffers;
+	uint8 _bankData[0x7000];
+	uint8 *_firstBankData;
+	uint8 *_lastBankData;
+	BankSlot _bankSlots[49];
+	BankSlot *_curBankSlot;
+	const uint8 *_bankDataPtrs;
+	uint16 _deathCutsceneCounter;
+	bool _saveStateCompleted;
 	
-	Game(Version ver, const char *dataPath, SystemStub *);
+	Game(SystemStub *, const char *dataPath, Version ver);
 
 	void run();
 
-	void game_mainLoop();
-	void game_loadLevelMap();
-	void game_loadLevelData();
-	void game_start();
-	void game_drawIcon(uint8 iconNum, int16 x, int16 y, uint8 colMask);
-	void game_drawCurrentInventoryItem();
-	void game_printLevelCode();
-	void game_showScore();
-	void game_printSaveStateCompleted();
-	void game_drawLevelTexts();
-	void game_drawStoryTexts();
-	void game_prepareAnims();
-	void game_prepareAnimsHelper(LivePGE *pge, int16 dx, int16 dy);
-	void game_drawAnims();
-	void game_drawAnimBuffer(uint8 stateNum, AnimBufferState *state);
-	void game_drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
-	void game_drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
-	void game_decodeCharacterFrame(const uint8 *dataPtr, uint8 *dstPtr);
-	void game_drawCharacter(const uint8 *dataPtr, int16 x, int16 y, uint8 a, uint8 b, uint8 flags);
-	uint8 *game_processMBK(uint16 MbkEntryNum);
-	int game_loadMonsterSprites(LivePGE *pge);
-	uint16 game_getRandomNumber();
-	void game_changeLevel();
-	uint16 game_getLineLength(const uint8 *str);
-	void game_handleInventory();
-	uint8 *game_findBankData(uint16 entryNum);
+	void mainLoop();
+	void loadLevelMap();
+	void loadLevelData();
+	void start();
+	void drawIcon(uint8 iconNum, int16 x, int16 y, uint8 colMask);
+	void drawCurrentInventoryItem();
+	void printLevelCode();
+	void showFinalScore();
+	bool handleContinueAbort();
+	void printSaveStateCompleted();
+	void drawLevelTexts();
+	void drawStoryTexts();
+	void prepareAnims();
+	void prepareAnimsHelper(LivePGE *pge, int16 dx, int16 dy);
+	void drawAnims();
+	void drawAnimBuffer(uint8 stateNum, AnimBufferState *state);
+	void drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
+	void drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
+	void decodeCharacterFrame(const uint8 *dataPtr, uint8 *dstPtr);
+	void drawCharacter(const uint8 *dataPtr, int16 x, int16 y, uint8 a, uint8 b, uint8 flags);
+	uint8 *processMBK(uint16 MbkEntryNum);
+	int loadMonsterSprites(LivePGE *pge);
+	uint16 getRandomNumber();
+	void changeLevel();
+	uint16 getLineLength(const uint8 *str);
+	void handleInventory();
+	uint8 *findBankData(uint16 entryNum);
 
 	
 	bool _pge_playAnimSound;
@@ -147,9 +148,9 @@ struct Game {
 	uint16 _pge_compareVar2;
 
 	void pge_resetGroups();
-	void pge_removeFromGroup(uint8 index);
+	void pge_removeFromGroup(uint8 idx);
 	int pge_isInGroup(LivePGE *pge_dst, uint16 group_id, uint16 counter);
-	void pge_loadForCurrentLevel(uint16 index);
+	void pge_loadForCurrentLevel(uint16 idx);
 	void pge_process(LivePGE *pge);
 	void pge_setupNextAnimFrame(LivePGE *pge, GroupPGE *le);
 	void pge_playAnimSound(LivePGE *pge, uint16 arg2);
@@ -355,8 +356,7 @@ struct Game {
 
 	void inp_update();
 
-
-	void snd_playSound(uint16 a);
+	void snd_playSound(uint8 sfxId, uint8 softVol);
 };
 
 #endif

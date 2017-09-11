@@ -22,12 +22,12 @@
 
 void Game::col_prepareRoomState() {
 	memset(_col_activeCollisionSlots, 0xFF, sizeof(_col_activeCollisionSlots));
-	_col_currentLeftRoom = _res._ctData[0xC0 + _game_currentRoom];
-	_col_currentRightRoom = _res._ctData[0x80 + _game_currentRoom];
+	_col_currentLeftRoom = _res._ctData[0xC0 + _currentRoom];
+	_col_currentRightRoom = _res._ctData[0x80 + _currentRoom];
 	for (int i = 0; i != _col_curPos; ++i) {
 		CollisionSlot *_di = _col_slotsTable[i];
 		uint8 room = _di->ct_pos / 64;
-		if (room == _game_currentRoom) {
+		if (room == _currentRoom) {
 			_col_activeCollisionSlots[0x30 + (_di->ct_pos & 0x3F)] = i;
 		} else if (room == _col_currentLeftRoom) {
 			_col_activeCollisionSlots[0x00 + (_di->ct_pos & 0x3F)] = i;

@@ -1,6 +1,6 @@
 
 REminiscence README
-Release version: 0.1.1 (Jan 29 2005)
+Release version: 0.1.2 (Feb 7 2005)
 -------------------------------------------------------------------------------
 
 About:
@@ -30,6 +30,7 @@ Running:
 You will need the original files, here is the required list :
 	FB_TXT.FNT
 	GLOBAL.ICN
+	GLOBAL.FIB
 	GLOBAL.SPC
 	*.OFF
 	*.SPR
@@ -42,6 +43,7 @@ You will need the original files, here is the required list :
 	*.PGE
 	*.RP
 	*.TBN
+	*CINE.*
 	
 To start the game, you can either :
 - put the game's datafiles in the same directory as the executable
@@ -52,9 +54,9 @@ Here are the various in game hotkeys :
     Enter           use the current inventory object 
     Shift           talk / use / run / shoot
     Backspace       display the inventory
-    Ctrl F          toggle fast mode
     Alt Enter       toggle windowed/fullscreen mode
     Alt + and -     change video scaler
+    Ctrl F          toggle fast mode
 
 Credits:
 --------

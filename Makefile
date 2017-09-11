@@ -9,8 +9,9 @@ CXXFLAGS:= -g -O -Wall -Wuninitialized -Wno-unknown-pragmas -Wshadow -Wimplicit
 CXXFLAGS+= -Wundef -Wreorder -Wwrite-strings -Wnon-virtual-dtor -Wno-multichar
 CXXFLAGS+= $(SDL_CFLAGS) $(DEFINES)
 
-SRCS = collision.cpp cutscene.cpp file.cpp game.cpp main.cpp menu.cpp piege.cpp \
-	resource.cpp sdlstub.cpp staticres.cpp unpack.cpp util.cpp video.cpp
+SRCS = collision.cpp cutscene.cpp file.cpp game.cpp graphics.cpp main.cpp \
+	menu.cpp mixer.cpp piege.cpp resource.cpp staticres.cpp systemstub_sdl.cpp \
+	unpack.cpp util.cpp video.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 DEPS = $(SRCS:.cpp=.d)

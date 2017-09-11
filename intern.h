@@ -38,10 +38,20 @@ inline void SWAP(T &a, T &b) {
 	b = tmp;
 }
 
+enum Version {
+	VER_FR,
+	VER_US
+};
+
 struct Color {
 	uint8 r;
 	uint8 g;
 	uint8 b;
+};
+
+struct Point {
+	int16 x;
+	int16 y;
 };
 
 struct Level {
@@ -157,12 +167,6 @@ struct BankSlot {
 	uint8 *ptr;
 };
 
-struct DirtyBlock {
-	uint16 start_x;
-	uint8 w;
-	uint8 h;
-};
-
 struct CollisionSlot2 {
 	CollisionSlot2 *next_slot;
 	int8 *unk2;
@@ -174,6 +178,12 @@ struct InventoryItem {
 	uint8 icon_num;
 	InitPGE *init_pge;
 	LivePGE *live_pge;
+};
+
+struct SoundFx {
+	uint32 offset;
+	uint16 len;
+	uint8 *data;
 };
 
 #endif

@@ -41,6 +41,7 @@ struct Video {
 	uint8 *_frontLayer;
 	uint8 *_backLayer;
 	uint8 *_tempLayer;
+	uint8 *_tempLayer2;
 	uint8 _unkPalSlot1, _unkPalSlot2;
 	uint8 _mapPalSlot1, _mapPalSlot2, _mapPalSlot3, _mapPalSlot4;
 	uint8 _drawCharColor1;
@@ -64,8 +65,8 @@ struct Video {
 	void drawSpriteSub4(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub5(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
 	void drawSpriteSub6(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask);
-	void drawChar(char c, int y, int x);	
-	const char *drawString(const char *str, int x, int y, uint8 col);
+	void drawChar(char c, int16 y, int16 x);
+	const char *drawString(const char *str, int16 x, int16 y, uint8 col);
 };
 
 #endif

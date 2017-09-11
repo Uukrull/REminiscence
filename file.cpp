@@ -37,7 +37,7 @@ struct stdFile : File_impl {
 	bool open(const char *path, const char *mode) {
 		_ioErr = false;
 		_fp = fopen(path, mode);
-		return (_fp != NULL);
+		return (_fp != 0);
 	}
 	void close() {
 		if (_fp) {
@@ -84,7 +84,7 @@ struct zlibFile : File_impl {
 	bool open(const char *path, const char *mode) {
 		_ioErr = false;
 		_fp = gzopen(path, mode);
-		return (_fp != NULL);
+		return (_fp != 0);
 	}
 	void close() {
 		if (_fp) {

@@ -37,10 +37,10 @@ void Game::pge_resetGroups() {
 	le->group_id = 0;
 }
 
-void Game::pge_removeFromGroup(uint8 index) {
-	GroupPGE *le = _pge_groupsTable[index];
+void Game::pge_removeFromGroup(uint8 idx) {
+	GroupPGE *le = _pge_groupsTable[idx];
 	if (le) {
-		_pge_groupsTable[index] = 0;
+		_pge_groupsTable[idx] = 0;
 		GroupPGE *next = _pge_nextFreeGroup;
 		while (le) {
 			GroupPGE *cur = le->next_entry;
@@ -66,11 +66,11 @@ int Game::pge_isInGroup(LivePGE *pge_dst, uint16 group_id, uint16 counter) {
 	return 0;
 }
 
-void Game::pge_loadForCurrentLevel(uint16 index) {
-	debug(DBG_PGE, "Game::pge_loadForCurrentLevel() index = %d", index);
+void Game::pge_loadForCurrentLevel(uint16 idx) {
+	debug(DBG_PGE, "Game::pge_loadForCurrentLevel() idx = %d", idx);
 
-	LivePGE *live_pge = &_pgeLive[index];
-	InitPGE *init_pge = &_res._pgeInit[index];
+	LivePGE *live_pge = &_pgeLive[idx];
+	InitPGE *init_pge = &_res._pgeInit[idx];
 
 	live_pge->init_PGE = init_pge;
 	live_pge->obj_type = init_pge->type;
@@ -80,7 +80,7 @@ void Game::pge_loadForCurrentLevel(uint16 index) {
 	live_pge->room_location = init_pge->init_room;
 	
 	live_pge->life = init_pge->life;
-	if (_game_skillLevel >= 2 && init_pge->object_type == 10) {
+	if (_skillLevel >= 2 && init_pge->object_type == 10) {
 		live_pge->life *= 2;
 	}
 	live_pge->counter_value = 0;
@@ -89,17 +89,17 @@ void Game::pge_loadForCurrentLevel(uint16 index) {
 	live_pge->current_inventory_PGE = 0xFF;
 	live_pge->unkF = 0xFF;
 	live_pge->anim_number = 0;
-	live_pge->index = index;
+	live_pge->index = idx;
 	live_pge->next_PGE_in_room = 0;
 	
 	// let's cheat :)
 //	if (index == 0) live_pge->life = 0x7FFF;
 
 	uint16 flags = 0;
-	if (init_pge->skill <= _game_skillLevel) {
-		if (init_pge->room_location != 0 || ((init_pge->flags & 4) && (_game_currentRoom == init_pge->init_room))) {
+	if (init_pge->skill <= _skillLevel) {
+		if (init_pge->room_location != 0 || ((init_pge->flags & 4) && (_currentRoom == init_pge->init_room))) {
 			flags |= 4;
-			_pge_liveTable2[index] = live_pge;
+			_pge_liveTable2[idx] = live_pge;
 		}
 		if (init_pge->mirror_x != 0) {
 			flags |= 1;
@@ -228,14 +228,15 @@ set_anim:
 
 void Game::pge_playAnimSound(LivePGE *pge, uint16 arg2) {
 	if ((pge->flags & 4) && _pge_playAnimSound) {
-		if (_game_currentRoom == pge->room_location) {
-			snd_playSound((arg2 & 0xFF) - 1);
+		uint8 sfxId = (arg2 & 0xFF) - 1;
+		if (_currentRoom == pge->room_location) {
+			snd_playSound(sfxId, 0);
 		} else {
-			if (_res._ctData[0x40 + _game_currentRoom] == pge->room_location ||
-				_res._ctData[0x00 + _game_currentRoom] == pge->room_location ||
-				_res._ctData[0x80 + _game_currentRoom] == pge->room_location ||
-				_res._ctData[0xC0 + _game_currentRoom] == pge->room_location) {
-				snd_playSound(0x100 | ((arg2 & 0xFF) - 1));
+			if (_res._ctData[0x40 + _currentRoom] == pge->room_location ||
+				_res._ctData[0x00 + _currentRoom] == pge->room_location ||
+				_res._ctData[0x80 + _currentRoom] == pge->room_location ||
+				_res._ctData[0xC0 + _currentRoom] == pge->room_location) {
+				snd_playSound(sfxId, 1);
 			}
 		}
 	}
@@ -315,7 +316,7 @@ int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {
 	live_pge->first_obj_number = obj->init_obj_number;
 	live_pge->anim_seq = 0;
 	if (obj->flags & 0xF0) {
-		_game_score += _scoreTable[obj->flags >> 4];
+		_score += _scoreTable[obj->flags >> 4];
 	}
 	if (obj->flags & 1) {
 		live_pge->flags ^= 1;
@@ -325,7 +326,7 @@ int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {
 		if (init_pge->object_type == 1) {
 			_pge_processOBJ = true;
 		} else if (init_pge->object_type == 10) {
-			_game_score += 100;
+			_score += 100;
 		}
 	}
 	if (obj->flags & 4) {
@@ -345,7 +346,7 @@ int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {
 	if (_pge_processOBJ) {
 		if (init_pge->object_type == 1) {
 			if (pge_processOBJ(live_pge) != 0) {
-				_game_blinkingConradCounter = 60;
+				_blinkingConradCounter = 60;
 				_pge_processOBJ = false;
 			}
 		}
@@ -355,8 +356,8 @@ int Game::pge_execute(LivePGE *live_pge, InitPGE *init_pge, const Object *obj) {
 
 void Game::pge_prepare() {
 	col_clearState();
-	if (!(_game_currentRoom & 0x80)) {
-		LivePGE *pge = _pge_liveTable1[_game_currentRoom];
+	if (!(_currentRoom & 0x80)) {
+		LivePGE *pge = _pge_liveTable1[_currentRoom];
 		while (pge) {
 			col_preparePiegeState(pge);
 			if (!(pge->flags & 4) && (pge->init_PGE->flags & 4)) {
@@ -368,7 +369,7 @@ void Game::pge_prepare() {
 	}
 	for (uint16 i = 0; i < _res._pgeNum; ++i) {
 		LivePGE *pge = _pge_liveTable2[i];
-		if (pge && _game_currentRoom != pge->room_location) {			
+		if (pge && _currentRoom != pge->room_location) {			
 			col_preparePiegeState(pge);
 		}
 	}
@@ -439,11 +440,11 @@ void Game::pge_setupOtherPieges(LivePGE *pge, InitPGE *init_pge) {
 			pge->room_location = room;
 		}
 		if (init_pge->object_type == 1) {
-			_game_currentRoom = room;
+			_currentRoom = room;
 			col_prepareRoomState();
-			_game_loadMap = true;
-			if (!(_game_currentRoom & 0x80) && _game_currentRoom < 0x40) {
-				LivePGE *pge_it = _pge_liveTable1[_game_currentRoom];
+			_loadMap = true;
+			if (!(_currentRoom & 0x80) && _currentRoom < 0x40) {
+				LivePGE *pge_it = _pge_liveTable1[_currentRoom];
 				while (pge_it) {
 					if (pge_it->init_PGE->flags & 4) {
 						_pge_liveTable2[pge_it->index] = pge_it;
@@ -451,7 +452,7 @@ void Game::pge_setupOtherPieges(LivePGE *pge, InitPGE *init_pge) {
 					}
 					pge_it = pge_it->next_PGE_in_room;
 				}
-				room = _res._ctData[0x00 + _game_currentRoom];
+				room = _res._ctData[0x00 + _currentRoom];
 				if (room >= 0 && room < 0x40) {
 					pge_it = _pge_liveTable1[room];
 					while (pge_it) {
@@ -462,7 +463,7 @@ void Game::pge_setupOtherPieges(LivePGE *pge, InitPGE *init_pge) {
 						pge_it = pge_it->next_PGE_in_room;
 					}
 				}
-				room = _res._ctData[0x40 + _game_currentRoom];
+				room = _res._ctData[0x40 + _currentRoom];
 				if (room >= 0 && room < 0x40) {
 					pge_it = _pge_liveTable1[room];
 					while (pge_it) {
@@ -820,7 +821,7 @@ int Game::pge_op_isPiegeDead(ObjectOpcodeArgs *args) {
 	LivePGE *pge = args->pge;
 	if (pge->life <= 0) {
 		if (pge->init_PGE->object_type == 10) {
-			_game_score += 100; 
+			_score += 100; 
 		}
 		return 1;
 	}
@@ -988,7 +989,7 @@ int Game::pge_o_unk0x40(ObjectOpcodeArgs *args) {
 	int8 pge_room = args->pge->room_location;
 	if (pge_room < 0 || pge_room >= 0x40) return 0;
 	int col_area;
-	if (_game_currentRoom == pge_room) {
+	if (_currentRoom == pge_room) {
 		col_area = 1;
 	} else if (_col_currentLeftRoom == pge_room) {
 		col_area = 0;
@@ -1112,14 +1113,14 @@ int Game::pge_o_unk0x42(ObjectOpcodeArgs *args) {
 int Game::pge_o_unk0x43(ObjectOpcodeArgs *args) {
 	LivePGE *pge = args->pge;
 	if (!(pge->init_PGE->flags & 4)) goto kill_pge;
-	if (_game_currentRoom & 0x80) goto skip_pge;
+	if (_currentRoom & 0x80) goto skip_pge;
 	if (pge->room_location & 0x80) goto kill_pge;
 	if (pge->room_location > 0x3F) goto kill_pge;
-	if (pge->room_location == _game_currentRoom) goto skip_pge;
-	if (pge->room_location == _res._ctData[0x00 + _game_currentRoom]) goto skip_pge;
-	if (pge->room_location == _res._ctData[0x40 + _game_currentRoom]) goto skip_pge;
-	if (pge->room_location == _res._ctData[0x80 + _game_currentRoom]) goto skip_pge;
-	if (pge->room_location == _res._ctData[0xC0 + _game_currentRoom]) goto skip_pge;
+	if (pge->room_location == _currentRoom) goto skip_pge;
+	if (pge->room_location == _res._ctData[0x00 + _currentRoom]) goto skip_pge;
+	if (pge->room_location == _res._ctData[0x40 + _currentRoom]) goto skip_pge;
+	if (pge->room_location == _res._ctData[0x80 + _currentRoom]) goto skip_pge;
+	if (pge->room_location == _res._ctData[0xC0 + _currentRoom]) goto skip_pge;
 
 kill_pge:	
 	pge->flags &= 0xFB;
@@ -1191,17 +1192,17 @@ int Game::pge_op_killPiege(ObjectOpcodeArgs *args) {
 	pge->flags &= 0xFB;
 	_pge_liveTable2[pge->index] = 0;
 	if (pge->init_PGE->object_type == 10) {
-		_game_score += 200;
+		_score += 200;
 	}
 	return 0xFFFF;
 }
 
 int Game::pge_op_isInCurrentRoom(ObjectOpcodeArgs *args) {
-	return (args->pge->room_location == _game_currentRoom) ? 1 : 0;
+	return (args->pge->room_location == _currentRoom) ? 1 : 0;
 }
 
 int Game::pge_op_isNotInCurrentRoom(ObjectOpcodeArgs *args) {
-	return (args->pge->room_location == _game_currentRoom) ? 0 : 1;
+	return (args->pge->room_location == _currentRoom) ? 0 : 1;
 }
 
 // elevator related
@@ -1218,8 +1219,8 @@ int Game::pge_op_scrollPosY(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_playDefaultDeathCutscene(ObjectOpcodeArgs *args) {
-	if (_game_deathCutsceneCounter == 0) {
-		_game_deathCutsceneCounter = args->a;
+	if (_deathCutsceneCounter == 0) {
+		_deathCutsceneCounter = args->a;
 	}
 	return 1;
 }
@@ -1259,8 +1260,8 @@ int Game::pge_op_setPiegeDefaultAnim(ObjectOpcodeArgs *args) {
 	int16 r = args->pge->init_PGE->counter_values[args->a];	
 	args->pge->room_location = r;
 	if (r == 1) {
-		warning("setting _game_loadMap to true");
-		_game_loadMap = true;
+		warning("setting _loadMap to true");
+		_loadMap = true;
 	}
 	pge_setupDefaultAnim(args->pge);
 	return 1;	
@@ -1277,7 +1278,7 @@ int Game::pge_op_decLifeCounter(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_playCutscene(ObjectOpcodeArgs *args) {
-	if (_game_deathCutsceneCounter == 0) {
+	if (_deathCutsceneCounter == 0) {
 		_cut._id = args->a;
 	}
 	return 1;	
@@ -1291,8 +1292,8 @@ int Game::pge_op_isTempVar2Set(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_playDeathCutscene(ObjectOpcodeArgs *args) {
-	if (_game_deathCutsceneCounter == 0) {
-		_game_deathCutsceneCounter = args->pge->init_PGE->counter_values[3] + 1;
+	if (_deathCutsceneCounter == 0) {
+		_deathCutsceneCounter = args->pge->init_PGE->counter_values[3] + 1;
 		_cut._deathCutsceneId = args->a;
 	}
 	return 1;
@@ -1366,7 +1367,7 @@ int Game::pge_o_unk0x60(ObjectOpcodeArgs *args) {
 int Game::pge_op_isInRandomRange(ObjectOpcodeArgs *args) {
 	uint16 n = args->a;
 	if (n != 0) {
-		if ((game_getRandomNumber() % n) == 0) {
+		if ((getRandomNumber() % n) == 0) {
 			return 1;
 		}
 	}
@@ -1425,7 +1426,7 @@ int Game::pge_o_unk0x6A(ObjectOpcodeArgs *args) {
 	int8 _bl;
 	int col_area = 0;
 	int8 *ct_data;
-	if (_game_currentRoom == pge_room) {
+	if (_currentRoom == pge_room) {
 		col_area = 1;
 	} else if (_col_currentLeftRoom == pge_room) {
 		col_area = 0;
@@ -1787,7 +1788,7 @@ int Game::pge_op_collides2u1u(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_displayText(ObjectOpcodeArgs *args) {
-	_game_textToDisplay = args->a;
+	_textToDisplay = args->a;
 	return 0xFFFF;
 }
 
@@ -1809,7 +1810,9 @@ int Game::pge_o_unk0x7C(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_playSound(ObjectOpcodeArgs *args) {
-	snd_playSound(args->a);
+	uint8 sfxId = args->a & 0xFF;
+	uint8 softVol = args->a >> 8;
+	snd_playSound(sfxId, softVol);
 	return 0xFFFF;
 }
 
@@ -1895,9 +1898,9 @@ int Game::pge_op_changeRoom(ObjectOpcodeArgs *args) {
 			live_pge_2->first_obj_number = i;
 		}
 		if (init_pge_2->object_type == 1) {
-			if (_game_currentRoom != live_pge_2->room_location) {
-				_game_currentRoom = live_pge_2->room_location;
-				game_loadLevelMap();
+			if (_currentRoom != live_pge_2->room_location) {
+				_currentRoom = live_pge_2->room_location;
+				loadLevelMap();
 			}
 		}
 		pge_setupDefaultAnim(live_pge_2);
@@ -1920,12 +1923,12 @@ int Game::pge_op_hasInventoryItem(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_changeLevel(ObjectOpcodeArgs *args) {
-	_game_currentLevel = args->a - 1;
-	return _game_currentLevel;
+	_currentLevel = args->a - 1;
+	return _currentLevel;
 }
 
 int Game::pge_op_shakeScreen(ObjectOpcodeArgs *args) {
-//	_vid_displayOffset = (game_getRandomNumber() & 3) - 1;
+//	_vid_displayOffset = (getRandomNumber() & 3) - 1;
 	warning("shaking screen is not yet implemented");
 	return 0xFFFF;
 }
@@ -1936,7 +1939,10 @@ int Game::pge_o_unk0x86(ObjectOpcodeArgs *args) {
 
 int Game::pge_op_playSoundGroup(ObjectOpcodeArgs *args) {
 	assert(args->a < 4);
-	snd_playSound(args->pge->init_PGE->counter_values[args->a]);
+	uint16 c = args->pge->init_PGE->counter_values[args->a];
+	uint8 sfxId = c & 0xFF;
+	uint8 softVol = c >> 8;
+	snd_playSound(sfxId, softVol);
 	return 0xFFFF;
 }
 
@@ -2121,7 +2127,7 @@ void Game::pge_updateGroup(uint8 index, uint8 unk1, int16 unk2) {
 		if (pge_room != pge->room_location) {
 			return;
 		}
-		if (unk1 == 0 && _game_blinkingConradCounter != 0) {
+		if (unk1 == 0 && _blinkingConradCounter != 0) {
 			return;
 		}
 		// XXX

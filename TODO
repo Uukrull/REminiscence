@@ -1,13 +1,8 @@
 
 TODO
   - save/load state
-  - cutscenes (partly done)
-  - sound (partly done)
   - smarter rendering code (ie. dirty blocks...) (partly done)
-  - continue/abort screen (rely on cutscene player)
+  - better localisation code
   - enum Piege flags
-  - music
-  - split code into more classes
-	* Collision: Game
-	* Piege: Game
-	* Game: Menu, Collision, Piege, SystemStub, Resource, Video
+  - music (maybe use amiga MODs instead of MIDI)
+  - code cleanup

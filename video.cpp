@@ -26,12 +26,14 @@ Video::Video(Resource *res, SystemStub *stub)
 	_frontLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 	_backLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 	_tempLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	_tempLayer2 = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 }
 
 Video::~Video() {
 	free(_frontLayer);
 	free(_backLayer);
 	free(_tempLayer);
+	free(_tempLayer2);
 }
 
 void Video::fadeOut() {
@@ -46,6 +48,7 @@ void Video::fadeOut() {
 			_stub->setPaletteEntry(c, &col);
 		}
 		_stub->copyRect(0, 0, GAMESCREEN_W, GAMESCREEN_H, _frontLayer, GAMESCREEN_W);
+		_stub->updateScreen();
 		_stub->sleep(120);
 	}
 }
@@ -259,7 +262,7 @@ void Video::drawSpriteSub6(const uint8 *src, uint8 *dst, int pitch, int h, int w
 	}
 }
 
-void Video::drawChar(char c, int y, int x) {
+void Video::drawChar(char c, int16 y, int16 x) {
 	debug(DBG_VIDEO, "Video::drawChar('%c', %d, %d)", c, y, x);
 	y *= 8;
 	x *= 8;
@@ -297,7 +300,7 @@ void Video::drawChar(char c, int y, int x) {
 	}
 }
 
-const char *Video::drawString(const char *str, int x, int y, uint8 col) {
+const char *Video::drawString(const char *str, int16 x, int16 y, uint8 col) {
 	debug(DBG_VIDEO, "Video::drawString('%s', %d, %d, 0x%X)", str, x, y, col);
 	int offset = y * 256 + x;
 	uint8 *dst = _frontLayer + offset;
@@ -328,4 +331,3 @@ const char *Video::drawString(const char *str, int x, int y, uint8 col) {
 	}
 	return str - 1;
 }
-

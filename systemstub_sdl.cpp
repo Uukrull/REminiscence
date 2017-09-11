@@ -20,8 +20,13 @@
 #include "systemstub.h"
 
 
-struct SDLStub : SystemStub {
-	typedef void (SDLStub::*ScaleProc)(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+struct SystemStub_SDL : SystemStub {
+	typedef void (SystemStub_SDL::*ScaleProc)(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+
+	enum {
+		MAX_BLIT_RECTS = 200,
+		SOUND_SAMPLE_RATE = 11025
+	};
 
 	struct Scaler {
 		const char *name;
@@ -38,8 +43,10 @@ struct SDLStub : SystemStub {
 	uint8 _scaler;
 	uint16 _pal[256];
 	uint16 _screenW, _screenH;
+	SDL_Rect _blitRects[MAX_BLIT_RECTS];
+	uint16 _numBlitRects;
 	
-	virtual ~SDLStub() {}
+	virtual ~SystemStub_SDL() {}
 	virtual void init(const char *title, uint16 w, uint16 h);
 	virtual void destroy();
 	virtual void setPalette(const uint8 *pal, uint16 n);
@@ -47,9 +54,17 @@ struct SDLStub : SystemStub {
 	virtual void getPaletteEntry(uint8 i, Color *c);
 	virtual void setOverscanColor(uint8 i);
 	virtual void copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch);
+	virtual void updateScreen();
 	virtual void processEvents();
 	virtual void sleep(uint32 duration);
 	virtual uint32 getTimeStamp();
+	virtual void startAudio(AudioCallback callback, void *param);
+	virtual void stopAudio();
+	virtual uint32 getOutputSampleRate();
+	virtual void *createMutex();
+	virtual void destroyMutex(void *mutex);
+	virtual void lockMutex(void *mutex);
+	virtual void unlockMutex(void *mutex);
 
 	void prepareGfxMode();
 	void cleanupGfxMode();
@@ -62,19 +77,19 @@ struct SDLStub : SystemStub {
 	void scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
 };
 
-const SDLStub::Scaler SDLStub::_scalers[] = {
-	{ "point1x", &SDLStub::point1x, 1 },
-	{ "point2x", &SDLStub::point2x, 2 },
-	{ "scale2x", &SDLStub::scale2x, 2 },
-	{ "point3x", &SDLStub::point3x, 3 },
-	{ "scale3x", &SDLStub::scale3x, 3 }
+const SystemStub_SDL::Scaler SystemStub_SDL::_scalers[] = {
+	{ "point1x", &SystemStub_SDL::point1x, 1 },
+	{ "point2x", &SystemStub_SDL::point2x, 2 },
+	{ "scale2x", &SystemStub_SDL::scale2x, 2 },
+	{ "point3x", &SystemStub_SDL::point3x, 3 },
+	{ "scale3x", &SystemStub_SDL::scale3x, 3 }
 };
 
 SystemStub *SystemStub_SDL_create() {
-	return new SDLStub();
+	return new SystemStub_SDL();
 }
 
-void SDLStub::init(const char *title, uint16 w, uint16 h) {
+void SystemStub_SDL::init(const char *title, uint16 w, uint16 h) {
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_ShowCursor(SDL_DISABLE);
 	SDL_WM_SetCaption(title, NULL);
@@ -85,7 +100,7 @@ void SDLStub::init(const char *title, uint16 w, uint16 h) {
 	int size_offscreen = (w + 2) * (h + 2) * 2;
 	_offscreen = (uint8 *)malloc(size_offscreen);
 	if (!_offscreen) {
-		error("Unable to allocate offscreen buffer");
+		error("SystemStub_SDL::init() Unable to allocate offscreen buffer");
 	}
 	memset(_offscreen, 0, size_offscreen);
 	_fullscreen = false;
@@ -94,12 +109,12 @@ void SDLStub::init(const char *title, uint16 w, uint16 h) {
 	prepareGfxMode();
 }
 
-void SDLStub::destroy() {
+void SystemStub_SDL::destroy() {
 	cleanupGfxMode();
 	SDL_Quit();
 }
 
-void SDLStub::setPalette(const uint8 *pal, uint16 n) {
+void SystemStub_SDL::setPalette(const uint8 *pal, uint16 n) {
 	assert(n <= 256);
 	for (int i = 0; i < n; ++i) {
 		uint8 r = pal[i * 3 + 0];
@@ -109,42 +124,67 @@ void SDLStub::setPalette(const uint8 *pal, uint16 n) {
 	}	
 }
 
-void SDLStub::setPaletteEntry(uint8 i, const Color *c) {
+void SystemStub_SDL::setPaletteEntry(uint8 i, const Color *c) {
 	uint8 r = (c->r << 2) | (c->r & 3);
 	uint8 g = (c->g << 2) | (c->g & 3);
 	uint8 b = (c->b << 2) | (c->b & 3);
 	_pal[i] = SDL_MapRGB(_screen->format, r, g, b);
 }
 
-void SDLStub::getPaletteEntry(uint8 i, Color *c) {
+void SystemStub_SDL::getPaletteEntry(uint8 i, Color *c) {
 	SDL_GetRGB(_pal[i], _screen->format, &c->r, &c->g, &c->b);
 	c->r >>= 2;
 	c->g >>= 2;
 	c->b >>= 2;
 }
 
-void SDLStub::setOverscanColor(uint8 i) {
+void SystemStub_SDL::setOverscanColor(uint8 i) {
+	// useful for fullscreen mode
 }
 
-void SDLStub::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
-	uint16 *dst_off = (uint16 *)_offscreen + (y + 1) * _screenW + (x + 1);
-	buf += y * pitch + x;
-	uint16 *p = dst_off;
-	while (h--) {
-		for (int i = 0; i < w; ++i) {
-			p[i] = _pal[buf[i]];
+void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
+	if (_numBlitRects >= MAX_BLIT_RECTS) {
+		warning("SystemStub_SDL::copyRect() Too many blit rects, you may experience graphical glitches");
+	} else {
+		assert(x + w <= _screenW && y + h <= _screenH);
+		SDL_Rect *br = &_blitRects[_numBlitRects];
+		br->x = x;
+		br->y = y;
+		br->w = w;
+		br->h = h;
+		++_numBlitRects;
+		
+		uint16 *p = (uint16 *)_offscreen + (y + 1) * _screenW + (x + 1);
+		buf += y * pitch + x;
+		while (h--) {
+			for (int i = 0; i < w; ++i) {
+				p[i] = _pal[buf[i]];
+			}
+			p += _screenW;
+			buf += pitch;
 		}
-		p += _screenW;
-		buf += pitch;
 	}
-	SDL_LockSurface(_sclscreen);
-	(this->*_scalers[_scaler].proc)((uint16 *)_sclscreen->pixels, _sclscreen->pitch, dst_off, _screenW, _screenW, _screenH);
-	SDL_UnlockSurface(_sclscreen);
-	SDL_BlitSurface(_sclscreen, NULL, _screen, NULL);
-	SDL_UpdateRect(_screen, 0, 0, 0, 0);
 }
 
-void SDLStub::processEvents() {
+void SystemStub_SDL::updateScreen() {
+	for (int i = 0; i < _numBlitRects; ++i) {
+		SDL_Rect *br = &_blitRects[i];
+		SDL_LockSurface(_sclscreen);
+		uint8 *dst = (uint8 *)_sclscreen->pixels + _sclscreen->pitch * br->y + br->x;
+		const uint16 *src = (uint16 *)_offscreen + (br->y + 1) * _screenW + (br->x + 1);
+		(this->*_scalers[_scaler].proc)((uint16 *)dst, _sclscreen->pitch, src, _screenW, br->w, br->h);
+		SDL_UnlockSurface(_sclscreen);		
+		SDL_BlitSurface(_sclscreen, NULL, _screen, NULL);
+		br->x *= _scalers[_scaler].factor;
+		br->y *= _scalers[_scaler].factor;
+		br->w *= _scalers[_scaler].factor;
+		br->h *= _scalers[_scaler].factor;
+	}	
+	SDL_UpdateRects(_screen, _numBlitRects, _blitRects);
+	_numBlitRects = 0;
+}
+
+void SystemStub_SDL::processEvents() {
 	SDL_Event ev;
 	while (SDL_PollEvent(&ev)) {
 		switch (ev.type) {
@@ -238,20 +278,61 @@ void SDLStub::processEvents() {
 	}
 }
 
-void SDLStub::sleep(uint32 duration) {
+void SystemStub_SDL::sleep(uint32 duration) {
 	SDL_Delay(duration);
 }
 
-uint32 SDLStub::getTimeStamp() {
+uint32 SystemStub_SDL::getTimeStamp() {
 	return SDL_GetTicks();
 }
 
-void SDLStub::prepareGfxMode() {
+
+void SystemStub_SDL::startAudio(AudioCallback callback, void *param) {
+	SDL_AudioSpec desired;
+	memset(&desired, 0, sizeof(desired));
+
+	desired.freq = SOUND_SAMPLE_RATE;
+	desired.format = AUDIO_S8;
+	desired.channels = 1;
+	desired.samples = 2048;
+	desired.callback = callback;
+	desired.userdata = param;
+	if (SDL_OpenAudio(&desired, NULL) == 0) {
+		SDL_PauseAudio(0);
+	} else {
+		error("SystemStub_SDL::startAudio() unable to open sound device");
+	}
+}
+
+void SystemStub_SDL::stopAudio() {
+	SDL_CloseAudio();
+}
+
+uint32 SystemStub_SDL::getOutputSampleRate() {
+	return SOUND_SAMPLE_RATE;
+}
+void *SystemStub_SDL::createMutex() {
+	return SDL_CreateMutex();
+}
+
+void SystemStub_SDL::destroyMutex(void *mutex) {
+	SDL_DestroyMutex((SDL_mutex *)mutex);
+}
+
+void SystemStub_SDL::lockMutex(void *mutex) {
+	SDL_mutexP((SDL_mutex *)mutex);
+}
+
+void SystemStub_SDL::unlockMutex(void *mutex) {
+	SDL_mutexV((SDL_mutex *)mutex);
+}
+
+void SystemStub_SDL::prepareGfxMode() {
 	int w = _screenW * _scalers[_scaler].factor;
 	int h = _screenH * _scalers[_scaler].factor;
 	_screen = SDL_SetVideoMode(w, h, 16, _fullscreen ? (SDL_FULLSCREEN | SDL_HWSURFACE) : SDL_HWSURFACE);
 	if (!_screen) {
-		error("SDLStub::prepareGfxMode() unable to allocate _screen buffer");
+		error("SystemStub_SDL::prepareGfxMode() unable to allocate _screen buffer");
 	}
 	_sclscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16,
 						_screen->format->Rmask,
@@ -259,11 +340,13 @@ void SDLStub::prepareGfxMode() {
 						_screen->format->Bmask,
 						_screen->format->Amask);
 	if (!_sclscreen) {
-		error("SDLStub::prepareGfxMode() unable to allocate _sclscreen buffer");
+		error("SystemStub_SDL::prepareGfxMode() unable to allocate _sclscreen buffer");
 	}
+	memset(_blitRects, 0, sizeof(_blitRects));
+	_numBlitRects = 0;
 }
 
-void SDLStub::cleanupGfxMode() {
+void SystemStub_SDL::cleanupGfxMode() {
 	if (_offscreen) {
 		free(_offscreen);
 		_offscreen = 0;
@@ -278,7 +361,7 @@ void SDLStub::cleanupGfxMode() {
 	}
 }
 
-void SDLStub::switchGfxMode(bool fullscreen, uint8 scaler) {
+void SystemStub_SDL::switchGfxMode(bool fullscreen, uint8 scaler) {
 	SDL_Surface *prev_sclscreen = _sclscreen;
 	SDL_FreeSurface(_screen); 	
 	_fullscreen = fullscreen;
@@ -288,7 +371,7 @@ void SDLStub::switchGfxMode(bool fullscreen, uint8 scaler) {
 	SDL_FreeSurface(prev_sclscreen);
 }
 
-void SDLStub::point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+void SystemStub_SDL::point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
 	dstPitch >>= 1;
 	while (h--) {
 		memcpy(dst, src, w * 2);
@@ -297,7 +380,7 @@ void SDLStub::point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 sr
 	}
 }
 
-void SDLStub::point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+void SystemStub_SDL::point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
 	dstPitch >>= 1;
 	while (h--) {
 		uint16 *p = dst;
@@ -313,7 +396,7 @@ void SDLStub::point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 sr
 	}
 }
 
-void SDLStub::point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+void SystemStub_SDL::point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {	
 	dstPitch >>= 1;
 	while (h--) {
 		uint16 *p = dst;
@@ -334,7 +417,7 @@ void SDLStub::point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 sr
 	}
 }
 
-void SDLStub::scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+void SystemStub_SDL::scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
 	dstPitch >>= 1;
 	while (h--) {
 		uint16 *p = dst;
@@ -361,7 +444,7 @@ void SDLStub::scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 sr
 	}
 }
 
-void SDLStub::scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+void SystemStub_SDL::scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
 	dstPitch >>= 1;
 	while (h--) {
 		uint16 *p = dst;

@@ -16,30 +16,23 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#ifndef __UTIL_H__
-#define __UTIL_H__
+#ifndef __GRAPHICS_H__
+#define __GRAPHICS_H__
 
 #include "intern.h"
 
-enum {
-	DBG_RES    = 1 << 0,
-	DBG_MENU   = 1 << 1,
-	DBG_UNPACK = 1 << 2,
-	DBG_PGE    = 1 << 3,
-	DBG_VIDEO  = 1 << 4,
-	DBG_GAME   = 1 << 5,
-	DBG_COL    = 1 << 6,
-	DBG_SND    = 1 << 7,
-	DBG_CUT    = 1 << 8
+struct Graphics {		
+	uint8 *_layer;
+	int16 _areaPoints[0x200];
+	
+	void drawPoint(uint8 color, const Point *pt);
+	void drawLine(uint8 color, const Point *pt1, const Point *pt2);
+	void addEllipseRadius(int16 y, int16 x1, int16 x2);
+	void drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx, int16 ry);
+	void fillArea(uint8 color, bool hasAlpha);
+	void drawSegment(uint8 color, bool hasAlpha, int16 ys, const Point *pts, uint8 numPts);
+	void drawPolygonOutline(uint8 color, const Point *pts, uint8 numPts);
+	void drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 numPts);
 };
-
-extern uint16 g_debugMask;
-
-extern void debug(uint16 cm, const char *msg, ...);
-extern void error(const char *msg, ...);
-extern void warning(const char *msg, ...);
-
-extern void string_lower(char *p);
-extern void string_upper(char *p);
 
 #endif

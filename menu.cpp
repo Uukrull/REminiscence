@@ -16,14 +16,23 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include "game.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "video.h"
 #include "menu.h"
 
 
-Menu::Menu(Resource *res, SystemStub *stub, Video *vid)
-	: _res(res), _stub(stub), _vid(vid) {
+Menu::Menu(Resource *res, SystemStub *stub, Video *vid, Version ver)
+	: _res(res), _stub(stub), _vid(vid), _ver(ver) {
+	switch (_ver) {
+	case VER_FR:
+		_textOptions = _textOptionsFR;
+		break;
+	case VER_US:
+		_textOptions = _textOptionsEN;
+		break;
+	}
 }
 	
 void Menu::loadPicture(const char *prefix) {
@@ -101,8 +110,16 @@ void Menu::drawString2(const char *t, int16 y, int16 x) {
 void Menu::handleInfoScreen() {
 	debug(DBG_MENU, "Menu::handleInfoScreen()");
 	_vid->fadeOut();
-	loadPicture("instru_f");
+	switch (_ver) {
+	case VER_FR:
+		loadPicture("instru_f");
+		break;
+	case VER_US:
+		loadPicture("instru_e");
+		break;	
+	}
 	_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
+	_stub->updateScreen();
 	do {
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
@@ -126,6 +143,7 @@ void Menu::handleSkillScreen(uint8 &new_skill) {
 		drawString(_textOptions[9], 19, 14, option_colors[skill_level][2]);
 
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
+		_stub->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
 
@@ -174,6 +192,7 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 		_vid->drawChar('_', 21, len + 15);
 
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
+		_stub->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
 		
@@ -230,6 +249,7 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 		}
 
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
+		_stub->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
 		

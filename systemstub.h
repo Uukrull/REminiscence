@@ -42,6 +42,8 @@ struct PlayerInput {
 };
 
 struct SystemStub {
+	typedef void (*AudioCallback)(void *param, uint8 *stream, int len);
+
 	PlayerInput _pi;
 
 	virtual ~SystemStub() {}
@@ -54,10 +56,33 @@ struct SystemStub {
 	virtual void getPaletteEntry(uint8 i, Color *c) = 0;
 	virtual void setOverscanColor(uint8 i) = 0;
 	virtual void copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) = 0;
+	virtual void updateScreen() = 0;
 
 	virtual void processEvents() = 0;
 	virtual void sleep(uint32 duration) = 0;
 	virtual uint32 getTimeStamp() = 0;
+	
+	virtual void startAudio(AudioCallback callback, void *param) = 0;
+	virtual void stopAudio() = 0;
+	virtual uint32 getOutputSampleRate() = 0;
+
+	virtual void *createMutex() = 0;
+	virtual void destroyMutex(void *mutex) = 0;
+	virtual void lockMutex(void *mutex) = 0;
+	virtual void unlockMutex(void *mutex) = 0;
+};
+
+struct MutexStack {
+	SystemStub *_stub;
+	void *_mutex;
+
+	MutexStack(SystemStub *stub, void *mutex) 
+		: _stub(stub), _mutex(mutex) {
+		_stub->lockMutex(_mutex);
+	}
+	~MutexStack() {
+		_stub->unlockMutex(_mutex);
+	}
 };
 
 extern SystemStub *SystemStub_SDL_create();
