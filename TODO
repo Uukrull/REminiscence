@@ -1,8 +1,6 @@
 
 TODO
   - save/load state
-  - enable level switching
-  - implement the missing opcodes
   - cutscenes (partly done)
   - sound (partly done)
   - smarter rendering code (ie. dirty blocks...) (partly done)

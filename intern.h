@@ -57,15 +57,15 @@ struct InitPGE {
 	uint16 obj_node_number;
 	uint16 life;
 	int16 counter_values[4];
-	uint8 object_family;
+	uint8 object_type;
 	uint8 init_room;
 	uint8 room_location;
 	uint8 init_flags;
 	uint8 unk16;
 	uint8 icon_num;
-	uint8 state;
+	uint8 object_id;
 	uint8 skill;
-	uint8 unk1A;
+	uint8 mirror_x;
 	uint8 flags;
 	uint8 unk1C; // collidable, collision_data_len
 	uint8 unk1D;
@@ -137,14 +137,14 @@ struct AnimBuffers {
 	AnimBufferState *_states[4];
 	uint8 _curPos[4];
 	
-	void addState(int stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge);
+	void addState(uint8 stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge);
 };
 
 struct CollisionSlot {
 	int16 ct_pos;
 	CollisionSlot *prev_slot;
 	LivePGE *live_pge;
-	uint16 index;	
+	uint16 index;
 };
 
 struct MbkEntry {

@@ -48,7 +48,7 @@ struct Video {
 	uint8 _drawCharColor3;	
 	
 	Video(Resource *res, SystemStub *stub);
-	void init();
+	~Video();
 	
 	void fadeOut();
 	void setPaletteSlotBE(int palSlot, int palNum);

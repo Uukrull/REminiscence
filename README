@@ -1,17 +1,16 @@
 
 REminiscence README
-Release version: 0.1.0 (Jan 23 2005)
+Release version: 0.1.1 (Jan 29 2005)
 -------------------------------------------------------------------------------
 
 About:
 ------
+
 REminiscence is a re-implementation of the engine used in the game Flashback
-made by Delphine Software and released in 1993. More informations about the
+made by Delphine Software and released in 1992. More informations about the
 game can found on mobygames [1] and also here [2].
 
-Please be aware that, currently, this implementation is not yet complete ; so
-it may contains bugs and non-implemented features that make it impossible to
-finish the game.
+Please be aware that, currently, this implementation is not yet complete.
 
 Supported Versions:
 -------------------
@@ -50,12 +49,12 @@ To start the game, you can either :
 
 Here are the various in game hotkeys :
     Arrow Keys      move Conrad
-    Enter			use the current inventory object 
-    Shift			talk / use / run
-    Backspace		display the inventory
+    Enter           use the current inventory object 
+    Shift           talk / use / run / shoot
+    Backspace       display the inventory
     Ctrl F          toggle fast mode
     Alt Enter       toggle windowed/fullscreen mode
-    Alt + and -     change scaling factor
+    Alt + and -     change video scaler
 
 Credits:
 --------

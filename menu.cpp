@@ -27,6 +27,7 @@ Menu::Menu(Resource *res, SystemStub *stub, Video *vid)
 }
 	
 void Menu::loadPicture(const char *prefix) {
+	debug(DBG_MENU, "Menu::loadPicture('%s')", prefix);
 	_res->load_MAP_menu(prefix, _res->_memBuf);
 	for (int i = 0; i < 4; ++i) {
 		for (int y = 0; y < 224; ++y) {
@@ -40,6 +41,7 @@ void Menu::loadPicture(const char *prefix) {
 }
 
 void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
+	debug(DBG_MENU, "Menu::drawString()");
 	uint8 v1b = _vid->_drawCharColor1;
 	uint8 v2b = _vid->_drawCharColor2;
 	uint8 v3b = _vid->_drawCharColor3;
@@ -88,6 +90,7 @@ void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
 }
 
 void Menu::drawString2(const char *t, int16 y, int16 x) {
+	debug(DBG_MENU, "Menu::drawString2()");
 	while (*t) {
 		_vid->drawChar(*t, y, x);
 		++x;
@@ -96,6 +99,7 @@ void Menu::drawString2(const char *t, int16 y, int16 x) {
 }
 
 void Menu::handleInfoScreen() {
+	debug(DBG_MENU, "Menu::handleInfoScreen()");
 	_vid->fadeOut();
 	loadPicture("instru_f");
 	_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
@@ -109,7 +113,8 @@ void Menu::handleInfoScreen() {
 	} while (!_stub->_pi.quit);
 }
 
-void Menu::handleSkillScreen(int &new_skill) {
+void Menu::handleSkillScreen(uint8 &new_skill) {
+	debug(DBG_MENU, "Menu::handleSkillScreen()");
 	static const uint8 option_colors[3][3] = { { 2, 3, 3 }, { 3, 2, 3}, { 3, 3, 2 } };	
 	_vid->fadeOut();
 	loadPicture("menu3");
@@ -149,7 +154,8 @@ void Menu::handleSkillScreen(int &new_skill) {
 	new_skill = 1;
 }
 
-int Menu::handlePasswordScreen(int &new_skill, int &new_level) {
+bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
+	debug(DBG_MENU, "Menu::handlePasswordScreen()");
 	_vid->fadeOut();
 	_vid->_drawCharColor3 = _charVar1;
 	_vid->_drawCharColor2 = 0xFF;
@@ -180,6 +186,7 @@ int Menu::handlePasswordScreen(int &new_skill, int &new_level) {
 			_stub->_pi.lastChar = 0;
 		}
 		if (_stub->_pi.backspace) {
+			_stub->_pi.backspace = false;
 			if (len > 0) {
 				--len;
 			}
@@ -192,21 +199,22 @@ int Menu::handlePasswordScreen(int &new_skill, int &new_level) {
 					if (strcmp(_passwords[level][skill], password) == 0) {
 						new_level = level;
 						new_skill = skill;
-						return 1;
+						return true;
 					}
 				}
 			}
-			return 0;
+			return false;
 		}		
 	} while (!_stub->_pi.quit);
-	return 0;
+	return false;
 }
 
-bool Menu::handleTitleScreen(int &new_skill, int &new_level) {
+bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
+	debug(DBG_MENU, "Menu::handleTitleScreen()");
 	bool quit_loop = false;
 	int menu_entry = 0;
 	bool reinit_screen = true;
-	while (!quit_loop && !_stub->_pi.quit) {
+	while (!quit_loop) {
 		if (reinit_screen) {
 			_vid->fadeOut();
 			loadPicture("menu1");
@@ -274,6 +282,9 @@ bool Menu::handleTitleScreen(int &new_skill, int &new_level) {
 				return false;
 				break;
 			}
+		}
+		if (_stub->_pi.quit) {
+			return false;
 		}
 	}
 	return true;

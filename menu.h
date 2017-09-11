@@ -42,28 +42,27 @@ struct Menu {
 	static const char *_textOptionsFR[];
 	static const char *_textOptionsEN[];
 	static const char *_passwords[8][3];
-
-	Menu(Resource *res, SystemStub *stub, Video *vid);
 	
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
 	
 	const char **_textOptions;
-
 	uint8 _charVar1;
 	uint8 _charVar2;
 	uint8 _charVar3;
 	uint8 _charVar4;
 	uint8 _charVar5;
+	
+	Menu(Resource *res, SystemStub *stub, Video *vid);
 
 	void drawString(const char *str, int16 y, int16 x, uint8 color);
 	void drawString2(const char *t, int16 y, int16 x);
 	void loadPicture(const char *prefix);
 	void handleInfoScreen();
-	void handleSkillScreen(int &new_skill);
-	int handlePasswordScreen(int &new_skill, int &new_level);
-	bool handleTitleScreen(int &new_skill, int &new_level);
+	void handleSkillScreen(uint8 &new_skill);
+	bool handlePasswordScreen(uint8 &new_skill, uint8 &new_level);
+	bool handleTitleScreen(uint8 &new_skill, uint8 &new_level);
 };
 
 #endif

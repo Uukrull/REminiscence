@@ -24,7 +24,7 @@
 struct File_impl;
 
 struct File {
-	File();
+	File(bool gzipped = false);
 	~File();
 
 	File_impl *_impl;

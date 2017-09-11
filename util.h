@@ -22,14 +22,13 @@
 #include "intern.h"
 
 enum {
-	DBG_INFO   = 1 << 0,
-	DBG_RES    = 1 << 1,
-	DBG_MENU   = 1 << 2,
-	DBG_UNPACK = 1 << 3,
-	DBG_PGE    = 1 << 4,
-	DBG_VIDEO  = 1 << 5,
-	DBG_GAME   = 1 << 6,
-	DBG_COL    = 1 << 7
+	DBG_RES    = 1 << 0,
+	DBG_MENU   = 1 << 1,
+	DBG_UNPACK = 1 << 2,
+	DBG_PGE    = 1 << 3,
+	DBG_VIDEO  = 1 << 4,
+	DBG_GAME   = 1 << 5,
+	DBG_COL    = 1 << 6
 };
 
 extern uint16 g_debugMask;

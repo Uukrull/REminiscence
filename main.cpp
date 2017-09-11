@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	g_debugMask = 0; //DBG_INFO | DBG_RES | DBG_MENU | DBG_PGE | DBG_VIDEO | DBG_GAME | DBG_UNPACK | DBG_COL;
+	g_debugMask = 0; // DBG_RES | DBG_MENU | DBG_PGE | DBG_VIDEO | DBG_GAME | DBG_UNPACK | DBG_COL;
 	SystemStub *stub = SystemStub_SDL_create();
 	Game *g = new Game(ver, dataPath, stub);
 	g->run();

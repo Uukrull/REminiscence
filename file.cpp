@@ -16,7 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include "zlib.h"
 #include "file.h"
+
 
 struct File_impl {
 	bool _ioErr;
@@ -76,9 +78,60 @@ struct stdFile : File_impl {
 	}
 };
 
+struct zlibFile : File_impl {
+	gzFile _fp;
+	zlibFile() : _fp(0) {}
+	bool open(const char *path, const char *mode) {
+		_ioErr = false;
+		_fp = gzopen(path, mode);
+		return (_fp != NULL);
+	}
+	void close() {
+		if (_fp) {
+			gzclose(_fp);
+			_fp = 0;
+		}
+	}
+	uint32 size() {
+		uint32 sz = 0;
+		if (_fp) {
+			int pos = gztell(_fp);
+			gzseek(_fp, 0, SEEK_END);
+			sz = gztell(_fp);
+			gzseek(_fp, pos, SEEK_SET);
+		}
+		return sz;
+	}	
+	void seek(int32 off) {
+		if (_fp) {
+			gzseek(_fp, off, SEEK_SET);
+		}
+	}
+	void read(void *ptr, uint32 len) {
+		if (_fp) {
+			uint32 r = gzread(_fp, ptr, len);
+			if (r != len) {
+				_ioErr = true;
+			}
+		}
+	}
+	void write(void *ptr, uint32 len) {
+		if (_fp) {
+			uint32 r = gzwrite(_fp, ptr, len);
+			if (r != len) {
+				_ioErr = true;
+			}
+		}
+	}
+};
 
-File::File() {
-	_impl = new stdFile;
+
+File::File(bool gzipped) {
+	if (gzipped) {
+		_impl = new zlibFile;
+	} else {
+		_impl = new stdFile;
+	}
 }
 
 File::~File() {

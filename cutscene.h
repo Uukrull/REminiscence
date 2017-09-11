@@ -16,24 +16,48 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#ifndef __UNPACK_H__
-#define __UNPACK_H__
+#ifndef __CUTSCENE_H__
+#define __CUTSCENE_H__
 
 #include "intern.h"
 
-struct Unpack {
-	int _size, _datasize;
-	uint32 _crc;
-	uint32 _chk;
-	uint8 *_dst;
-	const uint8 *_src;
+struct SystemStub;
+struct Video;
 
-	bool unpack(uint8 *dst, const uint8 *src, int size, int &dec_size);
-	void decUnk1(uint8 numChunks, uint8 addCount);
-	void decUnk2(uint8 numChunks);
-	uint16 getCode(uint8 numChunks);
-	bool nextChunk();
-	bool rcr(bool CF);
+struct Cutscene {
+	typedef void (Cutscene::*OpcodeStub)();
+
+	static const OpcodeStub _opcodeTable[];
+	static const char *_namesTable[];
+	static const uint16 _offsetsTable[];
+	static const uint16 _cosTable[];
+	static const uint16 _sinTable[];
+
+	Cutscene(SystemStub *stub, Video *vid);
+
+	SystemStub *_stub;
+	Video *_vid;
+
+	uint16 _id;
+	uint16 _deathCutsceneId;
+	bool _interrupted;	
+
+	void op_markCurPos();
+	void op_refreshScreen();
+	void op_waitForSync();
+	void op_drawShape0();
+	void op_setPalette();
+	void op_drawStringAtBottom();
+	void op_nop();
+	void op_skip3();
+	void op_refreshAll();
+	void op_drawShape1();
+	void op_drawShape2();
+	void op_drawCreditsText();
+	void op_drawStringAtPos();
+	void op_handleKeys();
+
+	void play();
 };
 
 #endif

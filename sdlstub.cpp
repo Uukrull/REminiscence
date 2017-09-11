@@ -58,12 +58,16 @@ struct SDLStub : SystemStub {
 	void point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
 	void point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
 	void point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+	void scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+	void scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
 };
 
 const SDLStub::Scaler SDLStub::_scalers[] = {
-	{ "Point1x", &SDLStub::point1x, 1 },
-	{ "Point2x", &SDLStub::point2x, 2 },
-	{ "Point3x", &SDLStub::point3x, 3 }
+	{ "point1x", &SDLStub::point1x, 1 },
+	{ "point2x", &SDLStub::point2x, 2 },
+	{ "scale2x", &SDLStub::scale2x, 2 },
+	{ "point3x", &SDLStub::point3x, 3 },
+	{ "scale3x", &SDLStub::scale3x, 3 }
 };
 
 SystemStub *SystemStub_SDL_create() {
@@ -77,12 +81,15 @@ void SDLStub::init(const char *title, uint16 w, uint16 h) {
 	memset(&_pi, 0, sizeof(_pi));
 	_screenW = w;
 	_screenH = h;
-	_offscreen = (uint8 *)malloc(w * h * 2);
+	// allocate some extra bytes for the scaling routines
+	int size_offscreen = (w + 2) * (h + 2) * 2;
+	_offscreen = (uint8 *)malloc(size_offscreen);
 	if (!_offscreen) {
 		error("Unable to allocate offscreen buffer");
 	}
+	memset(_offscreen, 0, size_offscreen);
 	_fullscreen = false;
-	_scaler = 1;
+	_scaler = 0;
 	memset(_pal, 0, sizeof(_pal));
 	prepareGfxMode();
 }
@@ -120,8 +127,9 @@ void SDLStub::setOverscanColor(uint8 i) {
 }
 
 void SDLStub::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
+	uint16 *dst_off = (uint16 *)_offscreen + (y + 1) * _screenW + (x + 1);
 	buf += y * pitch + x;
-	uint16 *p = ((uint16 *)_offscreen) + y * _screenW + x;
+	uint16 *p = dst_off;
 	while (h--) {
 		for (int i = 0; i < w; ++i) {
 			p[i] = _pal[buf[i]];
@@ -130,7 +138,7 @@ void SDLStub::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf,
 		buf += pitch;
 	}
 	SDL_LockSurface(_sclscreen);
-	(this->*_scalers[_scaler].proc)((uint16 *)_sclscreen->pixels, _sclscreen->pitch, (uint16 *)_offscreen, _screenW, _screenW, _screenH);
+	(this->*_scalers[_scaler].proc)((uint16 *)_sclscreen->pixels, _sclscreen->pitch, dst_off, _screenW, _screenW, _screenH);
 	SDL_UnlockSurface(_sclscreen);
 	SDL_BlitSurface(_sclscreen, NULL, _screen, NULL);
 	SDL_UpdateRect(_screen, 0, 0, 0, 0);
@@ -295,10 +303,10 @@ void SDLStub::point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 sr
 		uint16 *p = dst;
 		for (int i = 0; i < w; ++i, p += 2) {
 			uint16 c = *(src + i);
-			*(p + 0) = c;
+			*(p) = c;
 			*(p + 1) = c;
-			*(p + 0 + dstPitch) = c;
-			*(p + 1 + dstPitch) = c;
+			*(p + dstPitch) = c;
+			*(p + dstPitch + 1) = c;
 		}
 		dst += dstPitch * 2;
 		src += srcPitch;
@@ -311,15 +319,83 @@ void SDLStub::point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 sr
 		uint16 *p = dst;
 		for (int i = 0; i < w; ++i, p += 3) {
 			uint16 c = *(src + i);
-			*(p + 0) = c;
+			*(p) = c;
 			*(p + 1) = c;
 			*(p + 2) = c;
-			*(p + 0 + dstPitch) = c;
-			*(p + 1 + dstPitch) = c;
-			*(p + 2 + dstPitch) = c;
-			*(p + 0 + dstPitch * 2) = c;
-			*(p + 1 + dstPitch * 2) = c;
-			*(p + 2 + dstPitch * 2) = c;
+			*(p + dstPitch) = c;
+			*(p + dstPitch + 1) = c;
+			*(p + dstPitch + 2) = c;
+			*(p + 2 * dstPitch) = c;
+			*(p + 2 * dstPitch + 1) = c;
+			*(p + 2 * dstPitch + 2) = c;
+		}
+		dst += dstPitch * 3;
+		src += srcPitch;
+	}
+}
+
+void SDLStub::scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+	dstPitch >>= 1;
+	while (h--) {
+		uint16 *p = dst;
+		for (int i = 0; i < w; ++i, p += 2) {
+			uint16 B = *(src + i - srcPitch);
+			uint16 D = *(src + i - 1);
+			uint16 E = *(src + i);
+			uint16 F = *(src + i + 1);
+			uint16 H = *(src + i + srcPitch);
+			if (B != H && D != F) {
+				*(p) = D == B ? D : E;
+				*(p + 1) = B == F ? F : E;
+				*(p + dstPitch) = D == H ? D : E;
+				*(p + dstPitch + 1) = H == F ? F : E;
+			} else {
+				*(p) = E;
+				*(p + 1) = E;
+				*(p + dstPitch) = E;
+				*(p + dstPitch + 1) = E;
+			}
+		}
+		dst += dstPitch * 2;
+		src += srcPitch;
+	}
+}
+
+void SDLStub::scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+	dstPitch >>= 1;
+	while (h--) {
+		uint16 *p = dst;
+		for (int i = 0; i < w; ++i, p += 3) {
+			uint16 A = *(src + i - srcPitch - 1);
+			uint16 B = *(src + i - srcPitch);
+			uint16 C = *(src + i - srcPitch + 1);
+			uint16 D = *(src + i - 1);
+			uint16 E = *(src + i);
+			uint16 F = *(src + i + 1);
+			uint16 G = *(src + i + srcPitch - 1);
+			uint16 H = *(src + i + srcPitch);
+			uint16 I = *(src + i + srcPitch + 1);
+			if (B != H && D != F) {
+				*(p) = D == B ? D : E;
+				*(p + 1) = (D == B && E != C) || (B == F && E != A) ? B : E;
+				*(p + 2) = B == F ? F : E;
+				*(p + dstPitch) = (D == B && E != G) || (D == B && E != A) ? D : E;
+				*(p + dstPitch + 1) = E;
+				*(p + dstPitch + 2) = (B == F && E != I) || (H == F && E != C) ? F : E;
+				*(p + 2 * dstPitch) = D == H ? D : E;
+				*(p + 2 * dstPitch + 1) = (D == H && E != I) || (H == F && E != G) ? H : E;
+				*(p + 2 * dstPitch + 2) = H == F ? F : E;
+			} else {
+				*(p) = E;
+				*(p + 1) = E;
+				*(p + 2) = E;
+				*(p + dstPitch) = E;
+				*(p + dstPitch + 1) = E;
+				*(p + dstPitch + 2) = E;
+				*(p + 2 * dstPitch) = E;
+				*(p + 2 * dstPitch + 1) = E;
+				*(p + 2 * dstPitch + 2) = E;
+			}
 		}
 		dst += dstPitch * 3;
 		src += srcPitch;

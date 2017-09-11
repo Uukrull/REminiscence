@@ -23,15 +23,19 @@
 
 Video::Video(Resource *res, SystemStub *stub)
 	: _res(res), _stub(stub) {
+	_frontLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	_backLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	_tempLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 }
 
-void Video::init() {
-	_frontLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
-	_backLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);	
-	_tempLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);	
+Video::~Video() {
+	free(_frontLayer);
+	free(_backLayer);
+	free(_tempLayer);
 }
 
 void Video::fadeOut() {
+	debug(DBG_VIDEO, "Video::fadeOut()");
 	for (int i = 0; i <= 6; ++i) {
 		for (int c = 0; c < 256; ++c) {
 			Color col;
@@ -47,6 +51,7 @@ void Video::fadeOut() {
 }
 
 void Video::setPaletteSlotBE(int palSlot, int palNum) {
+	debug(DBG_VIDEO, "Video::setPaletteSlotBE()");
 	const uint8 *p = _res->_pal + palNum * 0x20;
 	for (int i = 0; i < 16; ++i) {
 		uint16 color = READ_BE_UINT16(p); p += 2;
@@ -60,6 +65,7 @@ void Video::setPaletteSlotBE(int palSlot, int palNum) {
 }
 
 void Video::setPaletteSlotLE(int palSlot, const uint8 *palData) {
+	debug(DBG_VIDEO, "Video::setPaletteSlotLE()");
 	for (int i = 0; i < 16; ++i) {
 		uint16 color = READ_LE_UINT16(palData); palData += 2;
 		Color c;
@@ -71,6 +77,7 @@ void Video::setPaletteSlotLE(int palSlot, const uint8 *palData) {
 }
 
 void Video::setPalette0xE() {
+	debug(DBG_VIDEO, "Video::setPalette0xE()");
 	const uint8 *p = _palSlot0xE;
 	for (int i = 0; i < 16; ++i) {
 		uint16 color = READ_LE_UINT16(p); p += 2;
@@ -83,6 +90,7 @@ void Video::setPalette0xE() {
 }
 
 void Video::setPalette0xF() {
+	debug(DBG_VIDEO, "Video::setPalette0xF()");
 	const uint8 *p = _palSlot0xF;
 	for (int i = 0; i < 16; ++i) {
 		Color c;
@@ -110,7 +118,7 @@ void Video::copyLevelMap(uint16 room) {
 	_mapPalSlot2 = *p++;
 	_mapPalSlot3 = *p++;
 	_mapPalSlot4 = *p++;
-	if (packed != 0) {
+	if (packed) {
 		uint8 *vid = _frontLayer;
 		for (int i = 0; i < 4; ++i) {
 			uint16 sz = READ_LE_UINT16(p); p += 2;
@@ -122,7 +130,7 @@ void Video::copyLevelMap(uint16 room) {
 		for (int i = 0; i < 4; ++i) {
 			for (int y = 0; y < 224; ++y) {
 				for (int x = 0; x < 64; ++x) {
-					_frontLayer[i + x * 4 + 256 * y] = p[0x3800 * i + x + 64 * y];
+					_frontLayer[i + x * 4 + 256 * y] = p[256 * 56 * i + x + 64 * y];
 				}
 			}
 		}
@@ -148,6 +156,7 @@ void Video::decodeLevelMap(uint16 sz, const uint8 *src, uint8 *dst) {
 }
 
 void Video::setLevelPalettes() {
+	debug(DBG_VIDEO, "Video::setLevelPalettes()");
 	if (_unkPalSlot2 == 0) {
 		_unkPalSlot2 = _mapPalSlot3;
 	}
@@ -168,6 +177,7 @@ void Video::setLevelPalettes() {
 	setPaletteSlotBE(0x9, _mapPalSlot2);
 	setPaletteSlotBE(0xA, _unkPalSlot2);
 	setPaletteSlotBE(0xB, _mapPalSlot4);
+	// slots 0xC and 0xD are cutscene palettes
 	setPalette0xE(); // text palette
 }
 
@@ -250,6 +260,7 @@ void Video::drawSpriteSub6(const uint8 *src, uint8 *dst, int pitch, int h, int w
 }
 
 void Video::drawChar(char c, int y, int x) {
+	debug(DBG_VIDEO, "Video::drawChar('%c', %d, %d)", c, y, x);
 	y *= 8;
 	x *= 8;
 	const uint8 *src = _res->_fnt + (c - 32) * 32;

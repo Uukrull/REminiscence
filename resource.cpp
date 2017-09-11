@@ -24,6 +24,7 @@
 Resource::Resource(const char *dataPath) {
 	memset(this, 0, sizeof(Resource));
 	_dataPath = dataPath;
+	_memBuf = (uint8 *)malloc(600 * 1024); // XXX reconsider this value
 }
 
 Resource::~Resource() {
@@ -35,10 +36,6 @@ Resource::~Resource() {
 	free(_memBuf);
 }
 
-void Resource::init() {
-	_memBuf = (uint8 *)malloc(600 * 1024);
-}
-
 void Resource::clearLevelRes() {	
 	free(_tbn); _tbn = 0;	
 	free(_mbk); _mbk = 0;
@@ -46,8 +43,8 @@ void Resource::clearLevelRes() {
 	free(_pal); _pal = 0;
 	free(_map); _map = 0;
 	free(_spc); _spc = 0;
-	free_OBJ();
 	free(_ani); _ani = 0;
+	free_OBJ();
 }
 
 void Resource::load_MAP_menu(const char *fileName, uint8 *dstPtr) {
@@ -298,7 +295,7 @@ void Resource::load_MAP(File *f) {
 void Resource::load_OBJ(File *f) {
 	debug(DBG_RES, "Resource::load_OBJ()");
 	
-	int i;
+	uint16 i;
 	
 	_numObjectNodes = f->readUint16LE();
 	assert(_numObjectNodes < 255);
@@ -330,7 +327,7 @@ void Resource::load_OBJ(File *f) {
 			on->last_obj_number = f->readUint16LE();
 			on->num_objects = objectsCount[iObj];
 			on->objects = (Object *)malloc(sizeof(Object) * on->num_objects);
-			for (int j = 0; j < on->num_objects; ++j) {
+			for (uint16 j = 0; j < on->num_objects; ++j) {
 				Object *obj = &on->objects[j];
 				obj->type = f->readUint16LE();
 				obj->dx = f->readByte();
@@ -360,7 +357,7 @@ void Resource::load_PGE(File *f) {
 	_pgeNum = f->readUint16LE();
 	memset(_pgeInit, 0, sizeof(_pgeInit));
 	debug(DBG_RES, "len = %d _pgeNum = %d mod = %d", len, _pgeNum, len % 0x20);
-	for (int i = 0; i < _pgeNum; ++i) {
+	for (uint16 i = 0; i < _pgeNum; ++i) {
 		InitPGE *pge = &_pgeInit[i];
 		pge->type = f->readUint16LE();
 		pge->pos_x = f->readUint16LE();
@@ -370,15 +367,15 @@ void Resource::load_PGE(File *f) {
 		for (int lc = 0; lc < 4; ++lc) {
 			pge->counter_values[lc] = f->readUint16LE();
 		}
-		pge->object_family = f->readByte();
+		pge->object_type = f->readByte();
 		pge->init_room = f->readByte();
 		pge->room_location = f->readByte();
 		pge->init_flags = f->readByte();
 		pge->unk16 = f->readByte();
 		pge->icon_num = f->readByte();
-		pge->state = f->readByte();
+		pge->object_id = f->readByte();
 		pge->skill = f->readByte();
-		pge->unk1A = f->readByte();
+		pge->mirror_x = f->readByte();
 		pge->flags = f->readByte();
 		pge->unk1C = f->readByte();
 		pge->unk1D = f->readByte();
@@ -405,6 +402,7 @@ void Resource::load_TBN(File *f) {
 }
 
 void Resource::free_OBJ() {
+	debug(DBG_RES, "Resource::free_OBJ()");
 	ObjectNode *prevNode = NULL;
 	for (int i = 0; i < _numObjectNodes; ++i) {
 		if (_objectNodesMap[i] != prevNode) {

@@ -78,15 +78,11 @@ struct Resource {
 	
 	Resource(const char *dataPath);
 	~Resource();
-	void init();
 	
 	void clearLevelRes();
-
 	void load_MAP_menu(const char *fileName, uint8 *dstPtr);
 	void load_PAL_menu(const char *fileName, uint8 *dstPtr);
-
 	void load_SPR_OFF(const char *fileName, uint8 *sprData);
-
 	void load(const char *objName, int objType);
 	void load_CT(File *pf);
 	void load_FNT(File *pf);
@@ -102,7 +98,6 @@ struct Resource {
 	void load_PGE(File *pf);
 	void load_ANI(File *pf);
 	void load_TBN(File *pf);
-	
 	void free_OBJ();
 };
 

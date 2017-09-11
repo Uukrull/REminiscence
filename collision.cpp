@@ -18,10 +18,8 @@
 
 #include "game.h"
 #include "resource.h"
-#include "systemstub.h"
 
 
-// cc
 void Game::col_prepareRoomState() {
 	memset(_col_activeCollisionSlots, 0xFF, sizeof(_col_activeCollisionSlots));
 	_col_currentLeftRoom = _res._ctData[0xC0 + _game_currentRoom];
@@ -39,13 +37,11 @@ void Game::col_prepareRoomState() {
 	}
 }
 
-// cc
 void Game::col_clearState() {
 	_col_curPos = 0;
 	_col_curSlot = _col_slots;
 }
 
-// cc
 void Game::col_preparePiegeState(LivePGE *pge) {
 	debug(DBG_COL, "Game::col_preparePiegeState() pge_num = %d", pge - &_pgeLive[0]);
 	CollisionSlot *ct_slot1, *ct_slot2;
@@ -108,7 +104,6 @@ void Game::col_preparePiegeState(LivePGE *pge) {
 	}
 }
 
-// c
 uint16 Game::col_getGridPos(LivePGE *pge, int16 dx) {
 	int16 x = pge->pos_x + dx;
 	int16 y = pge->pos_y;
@@ -143,7 +138,6 @@ uint16 Game::col_getGridPos(LivePGE *pge, int16 dx) {
 	}
 }
 
-// cc
 int16 Game::col_findSlot(int16 pos) {
 	for (uint16 i = 0; i < _col_curPos; ++i) {
 		if (_col_slotsTable[i]->ct_pos == pos)
@@ -152,7 +146,6 @@ int16 Game::col_findSlot(int16 pos) {
 	return -1;
 }
 
-// cc
 int16 Game::col_getGridData(LivePGE *pge, int16 dy, int16 dx) {
 	if (_pge_currentPiegeFacingDir) {
 		dx = -dx;
@@ -192,7 +185,6 @@ int16 Game::col_getGridData(LivePGE *pge, int16 dy, int16 dx) {
 	}
 }
 
-// cc
 LivePGE *Game::col_findPiege(LivePGE *pge, uint16 arg2) {
 	if (pge->collision_slot != 0xFF) {
 		CollisionSlot *slot = _col_slotsTable[pge->collision_slot];
@@ -200,7 +192,7 @@ LivePGE *Game::col_findPiege(LivePGE *pge, uint16 arg2) {
 			if (slot->live_pge == pge) {
 				slot = slot->prev_slot;
 			} else {
-				if (arg2 == 0xFFFF || arg2 == slot->live_pge->init_PGE->object_family) {
+				if (arg2 == 0xFFFF || arg2 == slot->live_pge->init_PGE->object_type) {
 					return slot->live_pge;
 				} else {
 					slot = slot->prev_slot;
@@ -211,7 +203,6 @@ LivePGE *Game::col_findPiege(LivePGE *pge, uint16 arg2) {
 	return 0;
 }
 
-// cc
 uint8 Game::col_findCurrentCollidingObject(LivePGE *pge, uint8 n1, uint8 n2, uint8 n3, LivePGE **pge_out) {
 	if (pge_out) {
 		*pge_out = pge;
@@ -223,9 +214,9 @@ uint8 Game::col_findCurrentCollidingObject(LivePGE *pge, uint8 n1, uint8 n2, uin
 			if (pge_out) {
 				*pge_out = col_pge;
 			}
-			if (col_pge->init_PGE->object_family == n1 ||
-				col_pge->init_PGE->object_family == n2 ||
-				col_pge->init_PGE->object_family == n3) {
+			if (col_pge->init_PGE->object_type == n1 ||
+				col_pge->init_PGE->object_type == n2 ||
+				col_pge->init_PGE->object_type == n3) {
 				return col_pge->init_PGE->unk16;
 			} else {
 				cs = cs->prev_slot;
@@ -235,7 +226,6 @@ uint8 Game::col_findCurrentCollidingObject(LivePGE *pge, uint8 n1, uint8 n2, uin
 	return 0;
 }
 
-// cc
 int16 Game::col_detectHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 callback1, col_Callback2 callback2, int16 argA, int16 argC) {
 	debug(DBG_COL, "col_detectHit()");
 	int16 pos_dx, pos_dy, var8, varA;
@@ -302,7 +292,6 @@ int16 Game::col_detectHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 ca
 	}
 }
 
-// cc
 int Game::col_detectHitCallback1(LivePGE *pge, int16 dy, int16 unk1, int16 unk2) {
 	if (col_getGridData(pge, 1, dy) != 0) {
 		return 1;
@@ -311,10 +300,13 @@ int Game::col_detectHitCallback1(LivePGE *pge, int16 dy, int16 unk1, int16 unk2)
 	}
 }
 
-// cc
+int Game::col_detectHitCallback6(LivePGE *pge, int16 dy, int16 unk1, int16 unk2) {
+	return 0;
+}
+
 int Game::col_detectHitCallback2(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16 unk2) {
 	if (pge1 != pge2 && (pge1->flags & 4)) {
-		if (pge1->init_PGE->object_family == unk2) {
+		if (pge1->init_PGE->object_type == unk2) {
 			if ((pge1->flags & 1) == (pge2->flags & 1)) {
 				if (col_detectHitCallbackHelper(pge1, unk1) == 0) {
 					return 1;
@@ -325,10 +317,9 @@ int Game::col_detectHitCallback2(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16
 	return 0;
 }
 
-// cc
 int Game::col_detectHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16 unk2) {
 	if (pge1 != pge2 && (pge1->flags & 4)) {
-		if (pge1->init_PGE->object_family == unk2) {
+		if (pge1->init_PGE->object_type == unk2) {
 			if ((pge1->flags & 1) != (pge2->flags & 1)) {
 				if (col_detectHitCallbackHelper(pge1, unk1) == 0) {
 					return 1;
@@ -339,7 +330,34 @@ int Game::col_detectHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16
 	return 0;
 }
 
-// cc
+int Game::col_detectHitCallback4(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16 unk2) {
+	if (pge1 != pge2 && (pge1->flags & 4)) {
+		if (pge1->init_PGE->object_type == unk2) {
+			if ((pge1->flags & 1) != (pge2->flags & 1)) {
+				if (col_detectHitCallbackHelper(pge1, unk1) == 0) {
+					pge_updateGroup(pge2->index, pge1->index, unk1);
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+int Game::col_detectHitCallback5(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16 unk2) {
+	if (pge1 != pge2 && (pge1->flags & 4)) {
+		if (pge1->init_PGE->object_type == unk2) {
+			if ((pge1->flags & 1) == (pge2->flags & 1)) {
+				if (col_detectHitCallbackHelper(pge1, unk1) == 0) {
+					pge_updateGroup(pge2->index, pge1->index, unk1);
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
 int Game::col_detectHitCallbackHelper(LivePGE *pge, int16 unk1) {
 	InitPGE *init_pge = pge->init_PGE;
 	assert(init_pge->obj_node_number < _res._numObjectNodes);
@@ -374,7 +392,6 @@ int Game::col_detectHitCallbackHelper(LivePGE *pge, int16 unk1) {
 	return 0;
 }
 
-// c
 int Game::col_detectGunHitCallback1(LivePGE *pge, int16 arg2, int16 arg4, int16 arg6) {
 	int16 _ax = col_getGridData(pge, 1, arg2);
 	if (_ax != 0) {
@@ -385,10 +402,9 @@ int Game::col_detectGunHitCallback1(LivePGE *pge, int16 arg2, int16 arg4, int16 
 	return 0;
 }
 
-// c
 int Game::col_detectGunHitCallback2(LivePGE *pge1, LivePGE *pge2, int16 arg4, int16) {
 	if (pge1 != pge2 && (pge1->flags & 4)) {
-		if (pge1->init_PGE->object_family == 1 || pge1->init_PGE->object_family == 10) {
+		if (pge1->init_PGE->object_type == 1 || pge1->init_PGE->object_type == 10) {
 			uint8 id;
 			if ((pge1->flags & 1) != (pge2->flags & 1)) {
 				id = 4;
@@ -410,10 +426,9 @@ int Game::col_detectGunHitCallback2(LivePGE *pge1, LivePGE *pge2, int16 arg4, in
 	return 0;
 }
 
-// c
 int Game::col_detectGunHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 arg4, int16) {
 	if (pge1 != pge2 && (pge1->flags & 4)) {
-		if (pge1->init_PGE->object_family == 1 || pge1->init_PGE->object_family == 12 || pge1->init_PGE->object_family == 10) {
+		if (pge1->init_PGE->object_type == 1 || pge1->init_PGE->object_type == 12 || pge1->init_PGE->object_type == 10) {
 			uint8 id;
 			if ((pge1->flags & 1) != (pge2->flags & 1)) {
 				id = 4;
@@ -436,7 +451,6 @@ int Game::col_detectGunHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 arg4, in
 	return 0;
 }
 
-// c
 int Game::col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 callback1, col_Callback2 callback2, int16 argA, int16 argC) {
 	int8 pge_room = pge->room_location;
 	if (pge_room < 0 || pge_room >= 0x40) return 0;
