@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,18 +33,18 @@ struct File {
 	bool open(const char *filename, const char *mode, const char *directory);
 	void close();
 	bool ioErr() const;
-	uint32 size();
-	void seek(int32 off);
-	void read(void *ptr, uint32 len);
-	uint8 readByte();
-	uint16 readUint16LE();
-	uint32 readUint32LE();
-	uint16 readUint16BE();
-	uint32 readUint32BE();
-	void write(void *ptr, uint32 size);
-	void writeByte(uint8 b);
-	void writeUint16BE(uint16 n);
-	void writeUint32BE(uint32 n);
+	uint32_t size();
+	void seek(int32_t off);
+	uint32_t read(void *ptr, uint32_t len);
+	uint8_t readByte();
+	uint16_t readUint16LE();
+	uint32_t readUint32LE();
+	uint16_t readUint16BE();
+	uint32_t readUint32BE();
+	uint32_t write(void *ptr, uint32_t size);
+	void writeByte(uint8_t b);
+	void writeUint16BE(uint16_t n);
+	void writeUint32BE(uint32_t n);
 };
 
 #endif // FILE_H__

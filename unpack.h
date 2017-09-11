@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,16 +20,6 @@
 
 #include "intern.h"
 
-
-struct UnpackCtx {
-	int size, datasize;
-	uint32 crc;
-	uint32 chk;
-	uint8 *dst;
-	const uint8 *src;
-};
-
-extern bool delphine_unpack(uint8 *dst, const uint8 *src, int len);
-
+extern bool delphine_unpack(uint8_t *dst, const uint8_t *src, int len);
 
 #endif // UNPACK_H__

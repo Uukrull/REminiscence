@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,14 +52,14 @@ struct Locale {
 	static const char *_textsTableEN[];
 	static const char *_textsTableDE[];
 	static const char *_textsTableSP[];
-	static const uint8 _stringsTableFR[];
-	static const uint8 _stringsTableEN[];
-	static const uint8 _stringsTableDE[];
-	static const uint8 _stringsTableSP[];
+	static const uint8_t _stringsTableFR[];
+	static const uint8_t _stringsTableEN[];
+	static const uint8_t _stringsTableDE[];
+	static const uint8_t _stringsTableSP[];
 
 	Version _ver;
 	const char **_textsTable;
-	const uint8 *_stringsTable;
+	const uint8_t *_stringsTable;
 
 	Locale(Version ver);
 	const char *get(int id) const;

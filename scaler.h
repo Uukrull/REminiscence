@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,24 +20,25 @@
 
 #include "intern.h"
 
-typedef void (*ScaleProc)(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+typedef void (*ScaleProc)(uint16_t *dst, int dstPitch, const uint16_t *src, int srcPitch, int w, int h);
 
 enum {
-	NUM_SCALERS = 5
+	SCALER_POINT_1X = 0,
+	SCALER_POINT_2X,
+	SCALER_SCALE_2X,
+	SCALER_POINT_3X,
+	SCALER_SCALE_3X,
+	SCALER_POINT_4X,
+	SCALER_SCALE_4X,
+	NUM_SCALERS = 7
 };
 
 struct Scaler {
 	const char *name;
 	ScaleProc proc;
-	uint8 factor;
+	uint8_t factor;
 };
 
 extern const Scaler _scalers[];
-
-void point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-void point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-void point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-void scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-void scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
 
 #endif // SCALER_H__

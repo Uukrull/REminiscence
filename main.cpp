@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <getopt.h>
+#include <sys/stat.h>
 #include "file.h"
 #include "fs.h"
 #include "game.h"
@@ -27,17 +29,6 @@ static const char *USAGE =
 	"  --savepath=PATH   Path to save files (default '.')\n"
 	"  --levelnum=NUM    Starting level (default '0')";
 
-static bool parseOption(const char *arg, const char *longCmd, const char **opt) {
-	bool handled = false;
-	if (arg[0] == '-' && arg[1] == '-') {
-		if (strncmp(arg + 2, longCmd, strlen(longCmd)) == 0) {
-			*opt = arg + 2 + strlen(longCmd);
-			handled = true;
-		}
-	}
-	return handled;
-}
-
 static int detectVersion(FileSystem *fs) {
 	static const struct {
 		const char *filename;
@@ -46,6 +37,7 @@ static int detectVersion(FileSystem *fs) {
 	} table[] = {
 		{ "LEVEL1.MAP", kResourceTypePC, "PC" },
 		{ "LEVEL1.LEV", kResourceTypeAmiga, "Amiga" },
+		{ "DEMO.LEV", kResourceTypeAmiga, "Amiga" },
 		{ 0, -1 }
 	};
 	for (int i = 0; table[i].filename; ++i) {
@@ -68,6 +60,7 @@ static Language detectLanguage(FileSystem *fs) {
 		{ "FR_CINE.TXT", LANG_FR },
 		{ "GERCINE.TXT", LANG_DE },
 		{ "SPACINE.TXT", LANG_SP },
+		{ "ITACINE.TXT", LANG_IT },
 		// Amiga
 		{ "FRCINE.TXT", LANG_FR },
 		{ 0, LANG_EN }
@@ -81,19 +74,43 @@ static Language detectLanguage(FileSystem *fs) {
 	return LANG_EN;
 }
 
+const char *g_caption = "REminiscence";
+
 #undef main
 int main(int argc, char *argv[]) {
 	const char *dataPath = "DATA";
 	const char *savePath = ".";
-	const char *levelNum = "0";
-	for (int i = 1; i < argc; ++i) {
-		bool opt = false;
-		if (strlen(argv[i]) >= 2) {
-			opt |= parseOption(argv[i], "datapath=", &dataPath);
-			opt |= parseOption(argv[i], "savepath=", &savePath);
-			opt |= parseOption(argv[i], "levelnum=", &levelNum);
+	int levelNum = 0;
+	if (argc == 2) {
+		// data path as the only command line argument
+		struct stat st;
+		if (stat(argv[1], &st) == 0 && S_ISDIR(st.st_mode)) {
+			dataPath = strdup(argv[1]);
 		}
-		if (!opt) {
+	}
+	while (1) {
+		static struct option options[] = {
+			{ "datapath", required_argument, 0, 1 },
+			{ "savepath", required_argument, 0, 2 },
+			{ "levelnum", required_argument, 0, 3 },
+			{ 0, 0, 0, 0 }
+		};
+		int index;
+		const int c = getopt_long(argc, argv, "", options, &index);
+		if (c == -1) {
+			break;
+		}
+		switch (c) {
+		case 1:
+			dataPath = strdup(optarg);
+			break;
+		case 2:
+			savePath = strdup(optarg);
+			break;
+		case 3:
+			levelNum = atoi(optarg);
+			break;
+		default:
 			printf(USAGE, argv[0]);
 			return 0;
 		}
@@ -107,7 +124,7 @@ int main(int argc, char *argv[]) {
 	}
 	Language language = detectLanguage(&fs);
 	SystemStub *stub = SystemStub_SDL_create();
-	Game *g = new Game(stub, &fs, savePath, atoi(levelNum), (ResourceType)version, language);
+	Game *g = new Game(stub, &fs, savePath, levelNum, (ResourceType)version, language);
 	g->run();
 	delete g;
 	delete stub;

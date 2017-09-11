@@ -15,22 +15,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef FS_H__
-#define FS_H__
+#ifndef OGG_PLAYER_H__
+#define OGG_PLAYER_H__
 
 #include "intern.h"
 
-struct FileSystem_impl;
+struct FileSystem;
+struct Mixer;
+struct OggDecoder_impl;
 
-struct FileSystem {
-	FileSystem(const char *dataPath);
-	~FileSystem();
+struct OggPlayer {
+	OggPlayer(Mixer *mixer, FileSystem *fs);
+	~OggPlayer();
 
-	FileSystem_impl *_impl;
+	bool playTrack(int num);
+	void stopTrack();
+	void pauseTrack();
+	void resumeTrack();
+	bool isPlaying() const { return _impl != 0; }
+	bool mix(int8_t *buf, int len);
+	static bool mixCallback(void *param, int8_t *buf, int len);
 
-	char *findPath(const char *filename) const;
-	bool exists(const char *filename) const;
+	Mixer *_mix;
+	FileSystem *_fs;
+	OggDecoder_impl *_impl;
 };
 
-#endif // FS_H__
+#endif // OGG_PLAYER_H__
 

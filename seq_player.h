@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,8 +38,8 @@ struct SeqDemuxer {
 	bool readFrameData();
 	void fillBuffer(int num, int offset, int size);
 	void clearBuffer(int num);
-	void readPalette(uint8 *dst);
-	void readAudioS8(uint8 *dst);
+	void readPalette(uint8_t *dst);
+	void readAudioS8(uint8_t *dst);
 
 	int _frameOffset;
 	int _audioDataOffset;
@@ -50,7 +50,7 @@ struct SeqDemuxer {
 	struct {
 		int size;
 		int avail;
-		uint8 *data;
+		uint8_t *data;
 	} _buffers[kBuffersCount];
 	int _fileSize;
 	File *_f;
@@ -66,7 +66,7 @@ struct SeqPlayer {
 	static const char *_namesTable[];
 
 	struct SoundBufferQueue {
-		uint8 *data;
+		uint8_t *data;
 		int size;
 		int read;
 		SoundBufferQueue *next;
@@ -75,13 +75,13 @@ struct SeqPlayer {
 	SeqPlayer(SystemStub *stub, Mixer *mixer);
 	~SeqPlayer();
 
-	void setBackBuffer(uint8 *buf) { _buf = buf; }
+	void setBackBuffer(uint8_t *buf) { _buf = buf; }
 	void play(File *f);
-	bool mix(int8 *buf, int len);
-	static bool mixCallback(void *param, int8 *buf, int len);
+	bool mix(int8_t *buf, int len);
+	static bool mixCallback(void *param, int8_t *buf, int len);
 
 	SystemStub *_stub;
-	uint8 *_buf;
+	uint8_t *_buf;
 	Mixer *_mix;
 	SeqDemuxer _demux;
 	int _soundQueuePreloadSize;

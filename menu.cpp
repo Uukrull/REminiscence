@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,22 +16,21 @@
  */
 
 #include "game.h"
-#include "mod_player.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "video.h"
 #include "menu.h"
 
 
-Menu::Menu(ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid)
-	: _ply(ply), _res(res), _stub(stub), _vid(vid) {
+Menu::Menu(Resource *res, SystemStub *stub, Video *vid)
+	: _res(res), _stub(stub), _vid(vid) {
 }
 
-void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
+void Menu::drawString(const char *str, int16_t y, int16_t x, uint8_t color) {
 	debug(DBG_MENU, "Menu::drawString()");
-	uint8 v1b = _vid->_charFrontColor;
-	uint8 v2b = _vid->_charTransparentColor;
-	uint8 v3b = _vid->_charShadowColor;
+	uint8_t v1b = _vid->_charFrontColor;
+	uint8_t v2b = _vid->_charTransparentColor;
+	uint8_t v3b = _vid->_charShadowColor;
 	switch (color) {
 	case 0:
 		_vid->_charFrontColor = _charVar1;
@@ -72,11 +71,11 @@ void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
 	_vid->_charShadowColor = v3b;
 }
 
-void Menu::drawString2(const char *str, int16 y, int16 x) {
+void Menu::drawString2(const char *str, int16_t y, int16_t x) {
 	debug(DBG_MENU, "Menu::drawString2()");
 	int len = 0;
 	while (*str) {
-		_vid->PC_drawChar((uint8)*str, y, x + len);
+		_vid->PC_drawChar((uint8_t)*str, y, x + len);
 		++str;
 		++len;
 	}
@@ -107,6 +106,7 @@ void Menu::handleInfoScreen() {
 	case LANG_EN:
 	case LANG_DE:
 	case LANG_SP:
+	case LANG_IT:
 		loadPicture("instru_e");
 		break;
 	}
@@ -122,9 +122,9 @@ void Menu::handleInfoScreen() {
 	} while (!_stub->_pi.quit);
 }
 
-void Menu::handleSkillScreen(uint8 &new_skill) {
+void Menu::handleSkillScreen(uint8_t &new_skill) {
 	debug(DBG_MENU, "Menu::handleSkillScreen()");
-	static const uint8 option_colors[3][3] = { { 2, 3, 3 }, { 3, 2, 3}, { 3, 3, 2 } };
+	static const uint8_t option_colors[3][3] = { { 2, 3, 3 }, { 3, 2, 3}, { 3, 3, 2 } };
 	_vid->fadeOut();
 	loadPicture("menu3");
 	_vid->fullRefresh();
@@ -164,7 +164,7 @@ void Menu::handleSkillScreen(uint8 &new_skill) {
 	new_skill = 1;
 }
 
-bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
+bool Menu::handlePasswordScreen(uint8_t &new_skill, uint8_t &new_level) {
 	debug(DBG_MENU, "Menu::handlePasswordScreen()");
 	_vid->fadeOut();
 	_vid->_charShadowColor = _charVar1;
@@ -179,7 +179,7 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 		drawString2(_res->getMenuString(LocaleData::LI_17_ENTER_PASSWORD2), 17, 3);
 
 		for (int i = 0; i < len; ++i) {
-			_vid->PC_drawChar((uint8)password[i], 21, i + 15);
+			_vid->PC_drawChar((uint8_t)password[i], 21, i + 15);
 		}
 		_vid->PC_drawChar(0x20, 21, len + 15);
 
@@ -224,13 +224,13 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 	return false;
 }
 
-bool Menu::handleLevelScreen(uint8 &new_skill, uint8 &new_level) {
+bool Menu::handleLevelScreen(uint8_t &new_skill, uint8_t &new_level) {
 	debug(DBG_MENU, "Menu::handleLevelScreen()");
 	_vid->fadeOut();
 	loadPicture("menu2");
 	_vid->fullRefresh();
-	uint8 currentSkill = new_skill;
-	uint8 currentLevel = new_level;
+	uint8_t currentSkill = new_skill;
+	uint8_t currentLevel = new_level;
 	do {
 		static const char *levelTitles[] = {
 			"Titan / The Jungle",
@@ -297,7 +297,7 @@ bool Menu::handleLevelScreen(uint8 &new_skill, uint8 &new_level) {
 	return false;
 }
 
-bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
+bool Menu::handleTitleScreen(uint8_t &new_skill, uint8_t &new_level) {
 	debug(DBG_MENU, "Menu::handleTitleScreen()");
 	bool quit_loop = false;
 	int menu_entry = 0;
@@ -308,7 +308,6 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 	_charVar3 = 0;
 	_charVar4 = 0;
 	_charVar5 = 0;
-	_ply->play(1);
 	static const struct {
 		int str;
 		int opt;
@@ -368,7 +367,6 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 		if (selected_menu_entry != -1) {
 			switch (menu_items[selected_menu_entry].opt) {
 			case MENU_OPTION_ITEM_START:
-				new_level = 0;
 				quit_loop = true;
 				break;
 			case MENU_OPTION_ITEM_SKILL:
@@ -405,6 +403,5 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			break;
 		}
 	}
-	_ply->stop();
 	return continue_game;
 }

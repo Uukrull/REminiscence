@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,9 @@
 #include "systemstub.h"
 
 
-Mixer::Mixer(SystemStub *stub)
-	: _stub(stub) {
+Mixer::Mixer(FileSystem *fs, SystemStub *stub)
+	: _stub(stub), _musicType(MT_NONE), _mod(this, fs), _ogg(this, fs), _sfx(this) {
+	_musicTrack = -1;
 }
 
 void Mixer::init() {
@@ -30,6 +31,7 @@ void Mixer::init() {
 }
 
 void Mixer::free() {
+	setPremixHook(0, 0);
 	stopAll();
 	_stub->stopAudio();
 }
@@ -41,7 +43,7 @@ void Mixer::setPremixHook(PremixHook premixHook, void *userData) {
 	_premixHookData = userData;
 }
 
-void Mixer::play(const MixerChunk *mc, uint16 freq, uint8 volume) {
+void Mixer::play(const MixerChunk *mc, uint16_t freq, uint8_t volume) {
 	debug(DBG_SND, "Mixer::play(%d, %d)", freq, volume);
 	LockAudioStack las(_stub);
 	MixerChannel *ch = 0;
@@ -66,19 +68,83 @@ void Mixer::play(const MixerChunk *mc, uint16 freq, uint8 volume) {
 	}
 }
 
-uint32 Mixer::getSampleRate() const {
+bool Mixer::isPlaying(const MixerChunk *mc) const {
+	debug(DBG_SND, "Mixer::isPlaying");
+	LockAudioStack las(_stub);
+	for (int i = 0; i < NUM_CHANNELS; ++i) {
+		const MixerChannel *ch = &_channels[i];
+		if (ch->active && ch->chunk.data == mc->data) {
+			return true;
+		}
+	}
+	return false;
+}
+
+uint32_t Mixer::getSampleRate() const {
 	return _stub->getOutputSampleRate();
 }
 
 void Mixer::stopAll() {
 	debug(DBG_SND, "Mixer::stopAll()");
 	LockAudioStack las(_stub);
-	for (uint8 i = 0; i < NUM_CHANNELS; ++i) {
+	for (uint8_t i = 0; i < NUM_CHANNELS; ++i) {
 		_channels[i].active = false;
 	}
 }
 
-void Mixer::mix(int8 *buf, int len) {
+static bool isMusicSfx(int num) {
+	return (num >= 68 && num <= 75);
+}
+
+void Mixer::playMusic(int num) {
+	debug(DBG_SND, "Mixer::playMusic(%d)", num);
+	if (num > MUSIC_TRACK && num != _musicTrack) {
+		if (_ogg.playTrack(num - MUSIC_TRACK)) {
+			_musicType = MT_OGG;
+			_musicTrack = num;
+			return;
+		}
+	}
+	if (num == 1) { // menu screen
+		if (_ogg.playTrack(2)) {
+			_musicType = MT_OGG;
+			_musicTrack = 2;
+			return;
+		}
+	}
+	if (isMusicSfx(num)) { // level action sequence
+		_sfx.play(num);
+		_musicType = MT_SFX;
+	} else { // cutscene
+		_mod.play(num);
+		_musicType = MT_MOD;
+	}
+}
+
+void Mixer::stopMusic() {
+	debug(DBG_SND, "Mixer::stopMusic()");
+	switch (_musicType) {
+	case MT_NONE:
+		break;
+	case MT_MOD:
+		_mod.stop();
+		break;
+	case MT_OGG:
+		_ogg.stopTrack();
+		_musicTrack = -1;
+		break;
+	case MT_SFX:
+		_sfx.stop();
+		break;
+	}
+	_musicType = MT_NONE;
+	if (_musicTrack != -1) {
+		_ogg.resumeTrack();
+		_musicType = MT_OGG;
+	}
+}
+
+void Mixer::mix(int8_t *buf, int len) {
 	memset(buf, 0, len);
 	if (_premixHook) {
 		if (!_premixHook(_premixHookData, buf, len)) {
@@ -86,7 +152,7 @@ void Mixer::mix(int8 *buf, int len) {
 			_premixHookData = 0;
 		}
 	}
-	for (uint8 i = 0; i < NUM_CHANNELS; ++i) {
+	for (uint8_t i = 0; i < NUM_CHANNELS; ++i) {
 		MixerChannel *ch = &_channels[i];
 		if (ch->active) {
 			for (int pos = 0; pos < len; ++pos) {
@@ -102,7 +168,7 @@ void Mixer::mix(int8 *buf, int len) {
 	}
 }
 
-void Mixer::addclamp(int8& a, int b) {
+void Mixer::addclamp(int8_t& a, int b) {
 	int add = a + b;
 	if (add < -128) {
 		add = -128;
@@ -112,6 +178,6 @@ void Mixer::addclamp(int8& a, int b) {
 	a = add;
 }
 
-void Mixer::mixCallback(void *param, uint8 *buf, int len) {
-	((Mixer *)param)->mix((int8 *)buf, len);
+void Mixer::mixCallback(void *param, int8_t *buf, int len) {
+	((Mixer *)param)->mix(buf, len);
 }

@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005-2011 Gregory Montoir
+ * Copyright (C) 2005-2015 Gregory Montoir
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,12 +25,16 @@
 bool SeqDemuxer::open(File *f) {
 	_f = f;
 	_fileSize = _f->size();
+	memset(_buffers, 0, sizeof(_buffers));
 	_frameOffset = 0;
 	return readHeader();
 }
 
 void SeqDemuxer::close() {
 	_f = 0;
+	for (int i = 0; i < kBuffersCount; ++i) {
+		free(_buffers[i].data);
+	}
 }
 
 bool SeqDemuxer::readHeader() {
@@ -44,7 +48,7 @@ bool SeqDemuxer::readHeader() {
 		if (size != 0) {
 			_buffers[i].size = 0;
 			_buffers[i].avail = size;
-			_buffers[i].data = (uint8 *)malloc(size);
+			_buffers[i].data = (uint8_t *)malloc(size);
 			if (!_buffers[i].data) {
 				error("Unable to allocate %d bytes for SEQ buffer %d", size, i);
 			}
@@ -66,11 +70,11 @@ bool SeqDemuxer::readFrameData() {
 	_audioDataSize = (_audioDataOffset != 0) ? kAudioBufferSize * 2 : 0;
 	_paletteDataOffset = _f->readUint16LE();
 	_paletteDataSize = (_paletteDataOffset != 0) ? 768 : 0;
-	uint8 num[4];
+	uint8_t num[4];
 	for (int i = 0; i < 4; ++i) {
 		num[i] = _f->readByte();
 	}
-	uint16 offsets[4];
+	uint16_t offsets[4];
 	for (int i = 0; i < 4; ++i) {
 		offsets[i] = _f->readUint16LE();
 	}
@@ -104,12 +108,12 @@ void SeqDemuxer::clearBuffer(int num) {
 	_buffers[num].size = 0;
 }
 
-void SeqDemuxer::readPalette(uint8 *dst) {
+void SeqDemuxer::readPalette(uint8_t *dst) {
 	_f->seek(_frameOffset + _paletteDataOffset);
 	_f->read(dst, 256 * 3);
 }
 
-void SeqDemuxer::readAudioS8(uint8 *dst) {
+void SeqDemuxer::readAudioS8(uint8_t *dst) {
 	_f->seek(_frameOffset + _audioDataOffset);
 	for (int i = 0; i < kAudioBufferSize; ++i) {
 		dst[i] = _f->readUint16BE() >> 8;
@@ -117,7 +121,7 @@ void SeqDemuxer::readAudioS8(uint8 *dst) {
 }
 
 struct BitStream {
-	BitStream(const uint8 *src)
+	BitStream(const uint8_t *src)
 		: _src(src) {
 		_bits = READ_LE_UINT16(_src); _src += 2;
 		_len = 16;
@@ -134,49 +138,43 @@ struct BitStream {
 		return x;
 	}
 	int getSignedBits(int count) {
-		const int x = getBits(count);
-		const int sbit = 1 << (count - 1);
-		if (x & sbit) {
-			return (x & (sbit - 1)) - sbit;
-		} else {
-			return x;
-		}
+		const int32_t x = getBits(count);
+		return (x << (32 - count)) >> (32 - count);
 	}
 
-	const uint8 *_src;
+	const uint8_t *_src;
 	int _len;
-	uint32 _bits;
+	uint32_t _bits;
 };
 
-static const uint8 *decodeSeqOp1Helper(const uint8 *src, uint8 *dst, int dst_size) {
-	int codes[64];
+static const uint8_t *decodeSeqOp1Helper(const uint8_t *src, uint8_t *dst, int dstSize) {
+	int codes[64], count = 0;
 	BitStream bs(src);
-	int count = 0;
 	for (int i = 0, sz = 0; i < 64 && sz < 64; ++i) {
 		codes[i] = bs.getSignedBits(4);
 		sz += ABS(codes[i]);
 		count += 4;
 	}
 	src += (count + 7) / 8;
-	for (int i = 0; i < 64 && dst_size > 0; ++i) {
+	for (int i = 0; i < 64 && dstSize > 0; ++i) {
 		int len = codes[i];
 		if (len < 0) {
 			len = -len;
-			memset(dst, *src++, MIN(len, dst_size));
+			memset(dst, *src++, MIN(len, dstSize));
 		} else {
-			memcpy(dst, src, MIN(len, dst_size));
+			memcpy(dst, src, MIN(len, dstSize));
 			src += len;
 		}
 		dst += len;
-		dst_size -= len;
+		dstSize -= len;
 	}
 	return src;
 }
 
-static const uint8 *decodeSeqOp1(uint8 *dst, int pitch, const uint8 *src) {
+static const uint8_t *decodeSeqOp1(uint8_t *dst, int pitch, const uint8_t *src) {
 	const int len = *src++;
 	if (len & 0x80) {
-		uint8 buf[8 * 8];
+		uint8_t buf[8 * 8];
 		switch (len & 3) {
 		case 1:
 			src = decodeSeqOp1Helper(src, buf, sizeof(buf));
@@ -196,7 +194,7 @@ static const uint8 *decodeSeqOp1(uint8 *dst, int pitch, const uint8 *src) {
 			break;
 		}
 	} else {
-		static const uint8 log2_16[] = { 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3 };
+		static const uint8_t log2_16[] = { 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3 };
 		BitStream bs(src + len);
 		assert(len <= 16);
 		const int bits = log2_16[len - 1] + 1;
@@ -210,7 +208,7 @@ static const uint8 *decodeSeqOp1(uint8 *dst, int pitch, const uint8 *src) {
 	return src;
 }
 
-static const uint8 *decodeSeqOp2(uint8 *dst, int pitch, const uint8 *src) {
+static const uint8_t *decodeSeqOp2(uint8_t *dst, int pitch, const uint8_t *src) {
 	for (int y = 0; y < 8; ++y) {
 		memcpy(dst + y * pitch, src, 8);
 		src += 8;
@@ -218,7 +216,7 @@ static const uint8 *decodeSeqOp2(uint8 *dst, int pitch, const uint8 *src) {
 	return src;
 }
 
-static const uint8 *decodeSeqOp3(uint8 *dst, int pitch, const uint8 *src) {
+static const uint8_t *decodeSeqOp3(uint8_t *dst, int pitch, const uint8_t *src) {
 	int pos;
 	do {
 		pos = *src++;
@@ -247,7 +245,7 @@ void SeqPlayer::play(File *f) {
 		memset(_buf, 0, 256 * 224);
 		bool clearScreen = true;
 		while (true) {
-			const uint32 nextFrameTimeStamp = _stub->getTimeStamp() + 1000 / 25;
+			const uint32_t nextFrameTimeStamp = _stub->getTimeStamp() + 1000 / 25;
 			_stub->processEvents();
 			if (_stub->_pi.quit || _stub->_pi.backspace) {
 				_stub->_pi.backspace = false;
@@ -259,7 +257,7 @@ void SeqPlayer::play(File *f) {
 			if (_demux._audioDataSize != 0) {
 				SoundBufferQueue *sbq = (SoundBufferQueue *)malloc(sizeof(SoundBufferQueue));
 				if (sbq) {
-					sbq->data = (uint8 *)malloc(SeqDemuxer::kAudioBufferSize);
+					sbq->data = (uint8_t *)malloc(SeqDemuxer::kAudioBufferSize);
 					if (sbq->data) {
 						_demux.readAudioS8(sbq->data);
 						sbq->size = SeqDemuxer::kAudioBufferSize;
@@ -287,7 +285,7 @@ void SeqPlayer::play(File *f) {
 				}
 			}
 			if (_demux._paletteDataSize != 0) {
-				uint8 buf[256 * 3];
+				uint8_t buf[256 * 3];
 				_demux.readPalette(buf);
 				for (int i = 0; i < 256 * 3; ++i) {
 					buf[i] = (buf[i] << 2) | (buf[i] & 3);
@@ -296,7 +294,7 @@ void SeqPlayer::play(File *f) {
 			}
 			if (_demux._videoData != -1) {
 				const int y0 = (224 - kVideoHeight) / 2;
-				const uint8 *src = _demux._buffers[_demux._videoData].data;
+				const uint8_t *src = _demux._buffers[_demux._videoData].data;
 				_demux.clearBuffer(_demux._videoData);
 				BitStream bs(src); src += 128;
 				for (int y = 0; y < kVideoHeight; y += 8) {
@@ -345,7 +343,7 @@ void SeqPlayer::play(File *f) {
 	}
 }
 
-bool SeqPlayer::mix(int8 *buf, int samples) {
+bool SeqPlayer::mix(int8_t *buf, int samples) {
 	if (_soundQueuePreloadSize < kSoundPreloadSize) {
 		return true;
 	}
@@ -363,8 +361,7 @@ bool SeqPlayer::mix(int8 *buf, int samples) {
 	return true;
 }
 
-bool SeqPlayer::mixCallback(void *param, int8 *buf, int len) {
-	memset(buf, 0, len);
+bool SeqPlayer::mixCallback(void *param, int8_t *buf, int len) {
 	return ((SeqPlayer *)param)->mix(buf, len);
 }
 
