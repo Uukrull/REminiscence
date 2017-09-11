@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef __UNPACK_H__
@@ -27,7 +27,7 @@ struct UnpackCtx {
 	uint32 crc;
 	uint32 chk;
 	uint8 *dst;
-	const uint8 *src;	
+	const uint8 *src;
 };
 
 extern bool delphine_unpack(uint8 *dst, const uint8 *src, int len);

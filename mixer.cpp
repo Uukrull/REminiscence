@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,14 +13,14 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "mixer.h"
 #include "systemstub.h"
 
 
-Mixer::Mixer(SystemStub *stub) 
+Mixer::Mixer(SystemStub *stub)
 	: _stub(stub) {
 }
 
@@ -98,15 +98,8 @@ void Mixer::mix(int8 *buf, int len) {
 					ch->active = false;
 					break;
 				}
-				// interpolate
-				int8 b0 = ch->chunk.data[(ch->chunkPos >> FRAC_BITS)];
-				int8 b1 = ch->chunk.data[(ch->chunkPos >> FRAC_BITS) + 1];
-				int a1 = ch->chunkPos & ((1 << FRAC_BITS) - 1);
-				int a0 = (1 << FRAC_BITS) - a1;
-				int8 b = (b0 * a0 + b1 * a1) >> FRAC_BITS;
-				// set volume and clamp
-				addclamp(buf[pos], b * ch->volume / Mixer::MAX_VOLUME);
-				
+				int out = resampleLinear(&ch->chunk, ch->chunkPos, ch->chunkInc, FRAC_BITS);
+				addclamp(buf[pos], out * ch->volume / Mixer::MAX_VOLUME);
 				ch->chunkPos += ch->chunkInc;
 			}
 		}

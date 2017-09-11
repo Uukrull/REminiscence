@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "game.h"
@@ -35,6 +35,15 @@ void Game::col_prepareRoomState() {
 			_col_activeCollisionSlots[0x60 + (_di->ct_pos & 0x3F)] = i;
 		}
 	}
+#ifdef DEBUG_COLLISION
+	printf("---\n");
+	for (int y = 0; y < 7; ++y) {
+		for (int x = 0; x < 16; ++x) {
+			printf("%d", _res._ctData[0x100 + _currentRoom * 0x70 + y * 16 + x]);
+		}
+		printf("\n");
+	}
+#endif
 }
 
 void Game::col_clearState() {
@@ -89,7 +98,7 @@ void Game::col_preparePiegeState(LivePGE *pge) {
 					temp_pge->flags |= 4;
 				}
 			}
-		} else {			
+		} else {
 			ct_slot2->prev_slot = 0;
 			_col_slotsTable[_col_curPos] = ct_slot2;
 			if (ct_slot1 == 0) {
@@ -107,10 +116,10 @@ void Game::col_preparePiegeState(LivePGE *pge) {
 uint16 Game::col_getGridPos(LivePGE *pge, int16 dx) {
 	int16 x = pge->pos_x + dx;
 	int16 y = pge->pos_y;
-	
-	int8 c = pge->room_location;	
+
+	int8 c = pge->room_location;
 	if (c < 0) return 0xFFFF;
-	
+
 	if (x < 0) {
 		c = _res._ctData[CT_LEFT_ROOM + c];
 		if (c < 0) return 0xFFFF;
@@ -128,8 +137,8 @@ uint16 Game::col_getGridPos(LivePGE *pge, int16 dx) {
 		if (c < 0) return 0xFFFF;
 		y -= 216;
 	}
-	
-	x = (x + 8) / 16;
+
+	x = (x + 8) >> 4;
 	y = (y - 8) / 72;
 	if (x < 0 || x > 15 || y < 0 || y > 2) {
 		return 0xFFFF;
@@ -158,14 +167,14 @@ int16 Game::col_getGridData(LivePGE *pge, int16 dy, int16 dx) {
 		room_ct_data = &_res._ctData[CT_LEFT_ROOM];
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
-		room_ct_data += pge_grid_x + 0x10 + pge_grid_y * 16 + next_room * 0x70;
-		return (int16)room_ct_data[CT_DOWN_ROOM];
+		room_ct_data += pge_grid_x + 16 + pge_grid_y * 16 + next_room * 0x70;
+		return (int16)room_ct_data[0x40];
 	} else if (pge_grid_x >= 16) {
 		room_ct_data = &_res._ctData[CT_RIGHT_ROOM];
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
-		room_ct_data += pge_grid_x - 0x10 + pge_grid_y * 16 + next_room * 0x70;
-		return (int16)room_ct_data[CT_RIGHT_ROOM];
+		room_ct_data += pge_grid_x - 16 + pge_grid_y * 16 + next_room * 0x70;
+		return (int16)room_ct_data[0x80];
 	} else if (pge_grid_y < 1) {
 		room_ct_data = &_res._ctData[CT_UP_ROOM];
 		next_room = room_ct_data[pge->room_location];
@@ -177,11 +186,11 @@ int16 Game::col_getGridData(LivePGE *pge, int16 dy, int16 dx) {
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
 		room_ct_data += pge_grid_x + (pge_grid_y - 6) * 16 + next_room * 0x70;
-		return (int16)room_ct_data[CT_LEFT_ROOM];
+		return (int16)room_ct_data[0xC0];
 	} else {
 		room_ct_data = &_res._ctData[0x100];
 		room_ct_data += pge_grid_x + pge_grid_y * 16 + pge->room_location * 0x70;
-		return (int16)room_ct_data[CT_UP_ROOM];
+		return (int16)room_ct_data[0];
 	}
 }
 
@@ -246,7 +255,7 @@ int16 Game::col_detectHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 ca
 	if (_pge_currentPiegeFacingDir) {
 		pos_dx = -pos_dx;
 	}
-	int16 grid_pos_x = (pge->pos_x + 8) / 16;
+	int16 grid_pos_x = (pge->pos_x + 8) >> 4;
 	int16 grid_pos_y = (pge->pos_y / 72);
 	if (grid_pos_y >= 0 && grid_pos_y <= 2) {
 		grid_pos_y *= 16;
@@ -262,12 +271,12 @@ int16 Game::col_detectHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 ca
 			if (grid_pos_x < 0) {
 				pge_room = _res._ctData[CT_LEFT_ROOM + pge_room];
 				if (pge_room < 0) break;
-				grid_pos_x += 0x10;
+				grid_pos_x += 16;
 			}
-			if (grid_pos_x >= 0x10) {
+			if (grid_pos_x >= 16) {
 				pge_room = _res._ctData[CT_RIGHT_ROOM + pge_room];
 				if (pge_room < 0) break;
-				grid_pos_x -= 0x10;
+				grid_pos_x -= 16;
 			}
 			int16 slot = col_findSlot(grid_pos_y + grid_pos_x + pge_room * 64);
 			if (slot >= 0) {
@@ -275,7 +284,7 @@ int16 Game::col_detectHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 ca
 				while (cs) {
 					collision_score += (this->*callback1)(cs->live_pge, pge, arg2, arg4);
 					cs = cs->prev_slot;
-				}				
+				}
 			}
 			if ((this->*callback2)(pge, var8, varA, arg2) != 0) {
 				break;
@@ -370,8 +379,8 @@ int Game::col_detectHitCallbackHelper(LivePGE *pge, int16 groupId) {
 				if (groupId == 1 || groupId == 2) return 0xFFFF;
 			}
 			if (obj->opcode_arg2 == 1) {
-				if (groupId == 3 || groupId == 4) return 0xFFFF;				
-			}			
+				if (groupId == 3 || groupId == 4) return 0xFFFF;
+			}
 		} else if (obj->opcode2 == 0x22) { // pge_op_isInGroup
 			if (obj->opcode_arg2 == groupId) return 0xFFFF;
 		}
@@ -381,8 +390,8 @@ int Game::col_detectHitCallbackHelper(LivePGE *pge, int16 groupId) {
 				if (groupId == 1 || groupId == 2) return 0xFFFF;
 			}
 			if (obj->opcode_arg1 == 1) {
-				if (groupId == 3 || groupId == 4) return 0xFFFF;				
-			}			
+				if (groupId == 3 || groupId == 4) return 0xFFFF;
+			}
 		} else if (obj->opcode1 == 0x22) { // pge_op_isInGroup
 			if (obj->opcode_arg1 == groupId) return 0xFFFF;
 		}
@@ -415,7 +424,7 @@ int Game::col_detectGunHitCallback2(LivePGE *pge1, LivePGE *pge2, int16 arg4, in
 				id = 2;
 				if (arg4 == 0) {
 					id = 1;
-				}				
+				}
 			}
 			if (col_detectHitCallbackHelper(pge1, id) != 0) {
 				pge_updateGroup(pge2->index, pge1->index, id);
@@ -439,13 +448,13 @@ int Game::col_detectGunHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 arg4, in
 				id = 2;
 				if (arg4 == 0) {
 					id = 1;
-				}				
+				}
 			}
 			if (col_detectHitCallbackHelper(pge1, id) != 0) {
 				pge_updateGroup(pge2->index, pge1->index, id);
 				return 1;
 			}
-	
+
 		}
 	}
 	return 0;
@@ -471,7 +480,7 @@ int Game::col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 c
 	if (_pge_currentPiegeFacingDir) {
 		pos_dx = -pos_dx;
 	}
-	int16 grid_pos_x = (pge->pos_x + 8) / 16;
+	int16 grid_pos_x = (pge->pos_x + 8) >> 4;
 	int16 grid_pos_y = (pge->pos_y - 8) / 72;
 	if (grid_pos_y >= 0 && grid_pos_y <= 2) {
 		grid_pos_y *= 16;

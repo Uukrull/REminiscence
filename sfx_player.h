@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,9 +13,9 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
- 
+
 #ifndef __SFX_PLAYER_H__
 #define __SFX_PLAYER_H__
 
@@ -30,12 +30,12 @@ struct SfxPlayer {
 		FRAC_BITS = 12,
 		PAULA_FREQ = 3546897
 	};
-	
+
 	struct Module {
 		const uint8 *sampleData[NUM_SAMPLES];
 		const uint8 *moduleData;
 	};
-	
+
 	struct SampleInfo {
 		uint16 len;
 		uint16 vol;
@@ -44,8 +44,17 @@ struct SfxPlayer {
 		int freq;
 		int pos;
 		const uint8 *data;
+
+		int8 getPCM(int offset) const {
+			if (offset < 0) {
+				offset = 0;
+			} else if (offset >= (int)len) {
+				offset = len - 1;
+			}
+			return (int8)data[offset];
+		}
 	};
-	
+
 	static const uint8 _musicData68[];
 	static const uint8 _musicData70[];
 	static const uint8 _musicData72[];
@@ -67,7 +76,7 @@ struct SfxPlayer {
 	static const Module _module74;
 	static const Module _module75;
 	static const uint16 _periodTable[];
-	
+
 	const Module *_mod;
 	bool _playing;
 	int _samplesLeft;
@@ -77,16 +86,16 @@ struct SfxPlayer {
 	const uint8 *_modData;
 	SampleInfo _samples[NUM_CHANNELS];
 	Mixer *_mix;
-	
+
 	SfxPlayer(Mixer *mixer);
-	
+
 	void play(uint8 num);
 	void stop();
 	void playSample(int channel, const uint8 *sampleData, uint16 period);
 	void handleTick();
 	bool mix(int8 *buf, int len);
 	void mixSamples(int8 *buf, int samplesLen);
-	
+
 	static bool mixCallback(void *param, int8 *buf, int len);
 };
 

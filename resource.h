@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef __RESOURCE_H__
@@ -22,6 +22,44 @@
 #include "intern.h"
 
 struct File;
+
+struct LocaleData {
+	enum Id {
+		LI_01_CONTINUE_OR_ABORT = 0,
+		LI_02_TIME,
+		LI_03_CONTINUE,
+		LI_04_ABORT,
+		LI_05_COMPLETED,
+		LI_06_LEVEL,
+		LI_07_START,
+		LI_08_SKILL,
+		LI_09_PASSWORD,
+		LI_10_INFO,
+		LI_11_QUIT,
+		LI_12_SKILL_LEVEL,
+		LI_13_EASY,
+		LI_14_NORMAL,
+		LI_15_EXPERT,
+		LI_16_ENTER_PASSWORD1,
+		LI_17_ENTER_PASSWORD2,
+		LI_18_RESUME_GAME,
+		LI_19_ABORT_GAME,
+		LI_20_LOAD_GAME,
+		LI_21_SAVE_GAME,
+		LI_22_SAVE_SLOT,
+
+		LI_NUM
+	};
+
+	static const char *_textsTableFR[];
+	static const char *_textsTableEN[];
+	static const char *_textsTableDE[];
+	static const char *_textsTableSP[];
+	static const uint8 _stringsTableFR[];
+	static const uint8 _stringsTableEN[];
+	static const uint8 _stringsTableDE[];
+	static const uint8 _stringsTableSP[];
+};
 
 struct Resource {
 	typedef void (Resource::*LoadStub)(File *);
@@ -48,11 +86,14 @@ struct Resource {
 		OT_POL    = 0x12,
 		OT_SPRM   = 0x13,
 		OT_OFF    = 0x14,
-		
+
 		OT_NUM    = 0x15
 	};
-	
+
+	static const uint16 _voicesOffsetsTable[];
+
 	const char *_dataPath;
+	Version _ver;
 	char _entryName[30];
 	uint8 *_fnt;
 	MbkEntry *_mbk;
@@ -66,7 +107,7 @@ struct Resource {
 	uint8 *_ani;
 	uint8 *_tbn;
 	int8 _ctData[0x1D00];
-	uint8 *_spr1;	
+	uint8 *_spr1;
 	uint8 *_spr_off[1287]; // 0-0x22F + 0x28E-0x2E9 ... conrad, 0x22F-0x28D : junkie
 	uint8 _sprm[0x8411]; // MERCENAI.SPR size
 	uint16 _pgeNum;
@@ -75,22 +116,29 @@ struct Resource {
 	uint16 _numObjectNodes;
 	ObjectNode *_objectNodesMap[255];
 	uint8 *_memBuf;
-	SoundFx _sfxList[0x42];
+	SoundFx *_sfxList;
 	uint8 _numSfx;
 	uint8 *_cmd;
 	uint8 *_pol;
 	uint8 *_cine_off;
 	uint8 *_cine_txt;
-		
-	Resource(const char *dataPath);
+	uint8 *_voiceBuf;
+	char **_extTextsTable;
+	const char **_textsTable;
+	uint8 *_extStringsTable;
+	const uint8 *_stringsTable;
+
+	Resource(const char *dataPath, Version ver);
 	~Resource();
-	
+
 	void clearLevelRes();
 	void load_FIB(const char *fileName);
 	void load_MAP_menu(const char *fileName, uint8 *dstPtr);
 	void load_PAL_menu(const char *fileName, uint8 *dstPtr);
 	void load_SPR_OFF(const char *fileName, uint8 *sprData);
-	void load_CINE(const char *fileName);
+	void load_CINE();
+	void load_TEXT();
+	void free_TEXT();
 	void load(const char *objName, int objType);
 	void load_CT(File *pf);
 	void load_FNT(File *pf);
@@ -103,12 +151,19 @@ struct Resource {
 	void load_PAL(File *pf);
 	void load_MAP(File *pf);
 	void load_OBJ(File *pf);
+	void free_OBJ();
 	void load_PGE(File *pf);
 	void load_ANI(File *pf);
 	void load_TBN(File *pf);
 	void load_CMD(File *pf);
 	void load_POL(File *pf);
-	void free_OBJ();
+	void load_VCE(int num, int segment, uint8 **buf, uint32 *bufSize);
+	const uint8 *getGameString(int num) {
+		return _stringsTable + READ_LE_UINT16(_stringsTable + num * 2);
+	}
+	const char *getMenuString(int num) {
+		return (num >= 0 && num < LocaleData::LI_NUM) ? _textsTable[num] : "";
+	}
 };
 
 #endif // __RESOURCE_H__

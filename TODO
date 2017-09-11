@@ -1,8 +1,0 @@
-
-TODO
-  - code cleanup
-    * cleanup the mixer/sound/mod_player/sfx_player mess
-    * cleanup Collision / ZOrdering / PiegeGroups stuff
-  - improve music/sound quality
-  - move all the static data to an external file (maybe)
-  - handle .seq files (displayed in 'overlay' mode, like the 3DO version does) (maybe)

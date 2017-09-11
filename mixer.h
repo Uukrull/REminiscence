@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef __MIXER_H__
@@ -22,23 +22,32 @@
 #include "intern.h"
 
 struct MixerChunk {
-	const uint8 *data;
-	uint16 len;
+	uint8 *data;
+	uint32 len;
+
+	int8 getPCM(int offset) const {
+		if (offset < 0) {
+			offset = 0;
+		} else if (offset >= (int)len) {
+			offset = len - 1;
+		}
+		return (int8)data[offset];
+	}
 };
 
 struct MixerChannel {
 	uint8 active;
 	uint8 volume;
 	MixerChunk chunk;
-	int chunkPos;
-	int chunkInc;
+	uint32 chunkPos;
+	uint32 chunkInc;
 };
 
 struct SystemStub;
 
 struct Mixer {
 	typedef bool (*PremixHook)(void *userData, int8 *buf, int len);
-	
+
 	enum {
 		NUM_CHANNELS = 4,
 		FRAC_BITS = 12,
@@ -63,5 +72,24 @@ struct Mixer {
 	static void addclamp(int8 &a, int b);
 	static void mixCallback(void *param, uint8 *buf, int len);
 };
+
+template <class T>
+int resampleLinear(T *sample, int pos, int step, int fracBits) {
+	const int inputPos = pos >> fracBits;
+	const int inputFrac = (1 << fracBits) - 1;
+	int out = sample->getPCM(inputPos);
+	out += (sample->getPCM(inputPos + 1) - out) * inputFrac >> fracBits;
+	return out;
+}
+
+template <class T>
+int resample3Pt(T *sample, int pos, int step, int fracBits) {
+	const int inputPos = pos >> fracBits;
+	const int inputFrac = (1 << fracBits) - 1;
+	int out = sample->getPCM(inputPos) >> 1;
+	out += sample->getPCM(inputPos + ((inputFrac - (step >> 1)) >> fracBits)) >> 2;
+	out += sample->getPCM(inputPos + ((inputFrac + (step >> 1)) >> fracBits)) >> 2;
+	return out;
+}
 
 #endif // __MIXER_H__

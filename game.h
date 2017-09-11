@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GAME_H__
@@ -21,7 +21,6 @@
 
 #include "intern.h"
 #include "cutscene.h"
-#include "locale.h"
 #include "menu.h"
 #include "mixer.h"
 #include "mod_player.h"
@@ -61,9 +60,8 @@ struct Game {
 	static const uint8 _pge_modKeysTable[];
 	static const uint8 _protectionCodeData[];
 	static const uint8 _protectionPal[];
-	
+
 	Cutscene _cut;
-	Locale _loc;
 	Menu _menu;
 	Mixer _mix;
 	ModPlayer _modPly;
@@ -72,7 +70,7 @@ struct Game {
 	Video _vid;
 	SystemStub *_stub;
 	const char *_savePath;
-	
+
 	const uint8 *_stringsTable;
 	const char **_textsTable;
 	uint8 _currentLevel;
@@ -102,12 +100,13 @@ struct Game {
 	const uint8 *_bankDataPtrs;
 	uint16 _deathCutsceneCounter;
 	bool _saveStateCompleted;
-	
+
 	Game(SystemStub *, const char *dataPath, const char *savePath, Version ver);
 
 	void run();
 	void resetGameState();
 	void mainLoop();
+	void updateTiming();
 	void playCutscene(int id = -1);
 	void loadLevelMap();
 	void loadLevelData();
@@ -139,7 +138,7 @@ struct Game {
 	void handleInventory();
 	uint8 *findBankData(uint16 entryNum);
 
-	
+
 	// pieges
 	bool _pge_playAnimSound;
 	GroupPGE _pge_groups[256];
@@ -149,7 +148,7 @@ struct Game {
 	LivePGE *_pge_liveTable1[256]; // pieges list by room (index = room)
 	LivePGE _pgeLive[256];
 	uint8 _pge_currentPiegeRoom;
-	uint16 _pge_currentPiegeFacingDir; // (0 == left)
+	bool _pge_currentPiegeFacingDir; // (false == left)
 	bool _pge_processOBJ;
 	uint8 _pge_inpKeysMask;
 	uint16 _pge_opTempVar1;
@@ -190,7 +189,7 @@ struct Game {
 	int pge_op_getCollision1d(ObjectOpcodeArgs *args);
 	int pge_op_getCollision2u(ObjectOpcodeArgs *args);
 	int pge_op_getCollision20(ObjectOpcodeArgs *args);
-	int pge_op_getCollision2d(ObjectOpcodeArgs *args);	
+	int pge_op_getCollision2d(ObjectOpcodeArgs *args);
 	int pge_op_doesNotCollide0u(ObjectOpcodeArgs *args);
 	int pge_op_doesNotCollide00(ObjectOpcodeArgs *args);
 	int pge_op_doesNotCollide0d(ObjectOpcodeArgs *args);
@@ -328,8 +327,8 @@ struct Game {
 	int pge_ZOrderIfTypeAndSameDirection(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2);
 	int pge_ZOrderIfTypeAndDifferentDirection(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2);
 	int pge_ZOrderByNumber(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2);
-	
-	
+
+
 	// collision
 	CollisionSlot _col_slots[256];
 	uint8 _col_curPos;
@@ -358,7 +357,7 @@ struct Game {
 	int col_detectHitCallback4(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16 unk2);
 	int col_detectHitCallback5(LivePGE *pge1, LivePGE *pge2, int16 unk1, int16 unk2);
 	int col_detectHitCallback1(LivePGE *pge, int16 dy, int16 unk1, int16 unk2);
-	int col_detectHitCallback6(LivePGE *pge, int16 dy, int16 unk1, int16 unk2);	
+	int col_detectHitCallback6(LivePGE *pge, int16 dy, int16 unk1, int16 unk2);
 	int col_detectHitCallbackHelper(LivePGE *pge, int16 unk1);
 	int col_detectGunHitCallback1(LivePGE *pge, int16 arg2, int16 arg4, int16 arg6);
 	int col_detectGunHitCallback2(LivePGE *pge1, LivePGE *pge2, int16 arg4, int16);
@@ -366,25 +365,27 @@ struct Game {
 	int col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 callback1, col_Callback2 callback2, int16 argA, int16 argC);
 
 
-	// input	
+	// input
+	uint8 _inp_lastKeysHit;
+	uint8 _inp_lastKeysHitLeftRight;
 	bool _inp_replay;
 	bool _inp_record;
 	File *_inp_demo;
 
 	void inp_handleSpecialKeys();
 	void inp_update();
-	
-	
+
+
 	// save/load state
 	uint8 _stateSlot;
 	bool _validSaveState;
-	
+
 	void makeGameDemoName(char *buf);
 	void makeGameStateName(uint8 slot, char *buf);
 	bool saveGameState(uint8 slot);
 	bool loadGameState(uint8 slot);
 	void saveState(File *f);
-	void loadState(File *f);	
+	void loadState(File *f);
 };
 
 #endif // __GAME_H__

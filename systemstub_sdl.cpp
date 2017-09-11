@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include <SDL.h>
@@ -39,7 +39,7 @@ struct SystemStub_SDL : SystemStub {
 	SDL_Joystick *_joystick;
 	SDL_Rect _blitRects[MAX_BLIT_RECTS];
 	uint16 _numBlitRects;
-	
+
 	virtual ~SystemStub_SDL() {}
 	virtual void init(const char *title, uint16 w, uint16 h);
 	virtual void destroy();
@@ -63,6 +63,8 @@ struct SystemStub_SDL : SystemStub {
 	void prepareGfxMode();
 	void cleanupGfxMode();
 	void switchGfxMode(bool fullscreen, uint8 scaler);
+	void flipGfx();
+	void forceGfxRedraw();
 	void drawRect(SDL_Rect *rect, uint8 color, uint16 *dst, uint16 dstPitch);
 };
 
@@ -72,7 +74,6 @@ SystemStub *SystemStub_SDL_create() {
 
 void SystemStub_SDL::init(const char *title, uint16 w, uint16 h) {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK);
-	atexit(SDL_Quit);
 	SDL_ShowCursor(SDL_DISABLE);
 	SDL_WM_SetCaption(title, NULL);
 	memset(&_pi, 0, sizeof(_pi));
@@ -100,6 +101,7 @@ void SystemStub_SDL::destroy() {
 	if (SDL_JoystickOpened(0)) {
 		SDL_JoystickClose(_joystick);
 	}
+	SDL_Quit();
 }
 
 void SystemStub_SDL::setPalette(const uint8 *pal, uint16 n) {
@@ -109,7 +111,7 @@ void SystemStub_SDL::setPalette(const uint8 *pal, uint16 n) {
 		uint8 g = pal[i * 3 + 1];
 		uint8 b = pal[i * 3 + 2];
 		_pal[i] = SDL_MapRGB(_screen->format, r, g, b);
-	}	
+	}
 }
 
 void SystemStub_SDL::setPaletteEntry(uint8 i, const Color *c) {
@@ -133,13 +135,13 @@ void SystemStub_SDL::setOverscanColor(uint8 i) {
 void SystemStub_SDL::copyRect(int16 x, int16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
 	if (_numBlitRects >= MAX_BLIT_RECTS) {
 		warning("SystemStub_SDL::copyRect() Too many blit rects, you may experience graphical glitches");
-	} else {		
+	} else {
 		// extend the dirty region by 1 pixel for scalers accessing 'outer' pixels
 		--x;
 		--y;
 		w += 2;
 		h += 2;
-		
+
 		if (x < 0) {
 			x = 0;
 		}
@@ -154,21 +156,32 @@ void SystemStub_SDL::copyRect(int16 x, int16 y, uint16 w, uint16 h, const uint8 
 		}
 
 		SDL_Rect *br = &_blitRects[_numBlitRects];
-		
-		br->x = x;
+
+		br->x = _pi.mirrorMode ? _screenW - (x + w) : x;
 		br->y = y;
 		br->w = w;
 		br->h = h;
 		++_numBlitRects;
-		
-		uint16 *p = (uint16 *)_offscreen + (y + 1) * _screenW + (x + 1);
+
+		uint16 *p = (uint16 *)_offscreen + (br->y + 1) * _screenW + (br->x + 1);
 		buf += y * pitch + x;
-		while (h--) {
-			for (int i = 0; i < w; ++i) {
-				p[i] = _pal[buf[i]];
+
+		if (_pi.mirrorMode) {
+			while (h--) {
+				for (int i = 0; i < w; ++i) {
+					p[i] = _pal[buf[w - 1 - i]];
+				}
+				p += _screenW;
+				buf += pitch;
 			}
-			p += _screenW;
-			buf += pitch;
+		} else {
+			while (h--) {
+				for (int i = 0; i < w; ++i) {
+					p[i] = _pal[buf[i]];
+				}
+				p += _screenW;
+				buf += pitch;
+			}
 		}
 		if (_pi.dbgMask & PlayerInput::DF_DBLOCKS) {
 			drawRect(br, 0xE7, (uint16 *)_offscreen + _screenW + 1, _screenW * 2);
@@ -196,8 +209,6 @@ void SystemStub_SDL::updateScreen(uint8 shakeOffset) {
 		}
 		SDL_UpdateRects(_screen, _numBlitRects, _blitRects);
 	} else {
-//		shakeOffset *= 4;
-		
 		SDL_LockSurface(_sclscreen);
 		uint16 w = _screenW;
 		uint16 h = _screenH - shakeOffset;
@@ -205,14 +216,14 @@ void SystemStub_SDL::updateScreen(uint8 shakeOffset) {
 		const uint16 *src = (uint16 *)_offscreen + _screenW + 1;
 		(*_scalers[_scaler].proc)(dst, _sclscreen->pitch, src, _screenW, w, h);
 		SDL_UnlockSurface(_sclscreen);
-		
+
 		SDL_Rect bsr, bdr;
 		bdr.x = 0;
 		bdr.y = 0;
 		bdr.w = _screenW * mul;
 		bdr.h = shakeOffset * mul;
 		SDL_FillRect(_screen, &bdr, _pal[_overscanColor]);
-		
+
 		bsr.x = 0;
 		bsr.y = 0;
 		bsr.w = _screenW * mul;
@@ -319,6 +330,7 @@ void SystemStub_SDL::processEvents() {
 			    _pi.backspace = false;
 			    break;
 			}
+			break;
 		case SDL_KEYUP:
 			switch (ev.key.keysym.sym) {
 			case SDLK_LEFT:
@@ -373,6 +385,9 @@ void SystemStub_SDL::processEvents() {
 					_pi.dbgMask ^= PlayerInput::DF_DBLOCKS;
 				} else if (ev.key.keysym.sym == SDLK_i) {
 					_pi.dbgMask ^= PlayerInput::DF_SETLIFE;
+				} else if (ev.key.keysym.sym == SDLK_m) {
+					_pi.mirrorMode = !_pi.mirrorMode;
+					flipGfx();
 				} else if (ev.key.keysym.sym == SDLK_s) {
 					_pi.save = true;
 				} else if (ev.key.keysym.sym == SDLK_l) {
@@ -448,7 +463,7 @@ void SystemStub_SDL::startAudio(AudioCallback callback, void *param) {
 	if (SDL_OpenAudio(&desired, NULL) == 0) {
 		SDL_PauseAudio(0);
 	} else {
-		error("SystemStub_SDL::startAudio() unable to open sound device");
+		error("SystemStub_SDL::startAudio() Unable to open sound device");
 	}
 }
 
@@ -459,6 +474,7 @@ void SystemStub_SDL::stopAudio() {
 uint32 SystemStub_SDL::getOutputSampleRate() {
 	return SOUND_SAMPLE_RATE;
 }
+
 void *SystemStub_SDL::createMutex() {
 	return SDL_CreateMutex();
 }
@@ -480,18 +496,14 @@ void SystemStub_SDL::prepareGfxMode() {
 	int h = _screenH * _scalers[_scaler].factor;
 	_screen = SDL_SetVideoMode(w, h, 16, _fullscreen ? (SDL_FULLSCREEN | SDL_HWSURFACE) : SDL_HWSURFACE);
 	if (!_screen) {
-		error("SystemStub_SDL::prepareGfxMode() unable to allocate _screen buffer");
+		error("SystemStub_SDL::prepareGfxMode() Unable to allocate _screen buffer");
 	}
 	const SDL_PixelFormat *pf = _screen->format;
 	_sclscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16, pf->Rmask, pf->Gmask, pf->Bmask, pf->Amask);
 	if (!_sclscreen) {
-		error("SystemStub_SDL::prepareGfxMode() unable to allocate _sclscreen buffer");
+		error("SystemStub_SDL::prepareGfxMode() Unable to allocate _sclscreen buffer");
 	}
-	_numBlitRects = 1;
-	_blitRects[0].x = 0;
-	_blitRects[0].y = 0;
-	_blitRects[0].w = _screenW;
-	_blitRects[0].h = _screenH;
+	forceGfxRedraw();
 }
 
 void SystemStub_SDL::cleanupGfxMode() {
@@ -504,19 +516,42 @@ void SystemStub_SDL::cleanupGfxMode() {
 		_sclscreen = 0;
 	}
 	if (_screen) {
-		SDL_FreeSurface(_screen);
+		// freed by SDL_Quit()
 		_screen = 0;
 	}
 }
 
 void SystemStub_SDL::switchGfxMode(bool fullscreen, uint8 scaler) {
 	SDL_Surface *prev_sclscreen = _sclscreen;
-	SDL_FreeSurface(_screen); 	
+	SDL_FreeSurface(_screen);
 	_fullscreen = fullscreen;
 	_scaler = scaler;
 	prepareGfxMode();
 	SDL_BlitSurface(prev_sclscreen, NULL, _sclscreen, NULL);
 	SDL_FreeSurface(prev_sclscreen);
+}
+
+void SystemStub_SDL::flipGfx() {
+	uint16 scanline[256];
+	assert(_screenW <= 256);
+	uint16 *p = (uint16 *)_offscreen + _screenW + 1;
+	for (int y = 0; y < _screenH; ++y) {
+		p += _screenW;
+		for (int x = 0; x < _screenW; ++x) {
+			scanline[x] = *--p;
+		}
+		memcpy(p, scanline, _screenW * sizeof(uint16));
+		p += _screenW;
+	}
+	forceGfxRedraw();
+}
+
+void SystemStub_SDL::forceGfxRedraw() {
+	_numBlitRects = 1;
+	_blitRects[0].x = 0;
+	_blitRects[0].y = 0;
+	_blitRects[0].w = _screenW;
+	_blitRects[0].h = _screenH;
 }
 
 void SystemStub_SDL::drawRect(SDL_Rect *rect, uint8 color, uint16 *dst, uint16 dstPitch) {

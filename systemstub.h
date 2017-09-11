@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef __SYSTEMSTUB_H__
@@ -40,16 +40,18 @@ struct PlayerInput {
 	bool shift;
 	bool backspace;
 	bool escape;
-	
+
 	char lastChar;
-	
+
 	bool save;
 	bool load;
 	int stateSlot;
-	
+
 	bool inpRecord;
 	bool inpReplay;
-	
+
+	bool mirrorMode;
+
 	uint8 dbgMask;
 	bool quit;
 };
@@ -74,7 +76,7 @@ struct SystemStub {
 	virtual void processEvents() = 0;
 	virtual void sleep(uint32 duration) = 0;
 	virtual uint32 getTimeStamp() = 0;
-	
+
 	virtual void startAudio(AudioCallback callback, void *param) = 0;
 	virtual void stopAudio() = 0;
 	virtual uint32 getOutputSampleRate() = 0;
@@ -89,7 +91,7 @@ struct MutexStack {
 	SystemStub *_stub;
 	void *_mutex;
 
-	MutexStack(SystemStub *stub, void *mutex) 
+	MutexStack(SystemStub *stub, void *mutex)
 		: _stub(stub), _mutex(mutex) {
 		_stub->lockMutex(_mutex);
 	}

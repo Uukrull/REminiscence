@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,12 +13,12 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
- 
+
 #include "scaler.h"
 
- 
+
 const Scaler _scalers[] = {
 	{ "point1x", &point1x, 1 },
 	{ "point2x", &point2x, 2 },
@@ -52,7 +52,7 @@ void point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, u
 	}
 }
 
-void point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {	
+void point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
 	dstPitch >>= 1;
 	while (h--) {
 		uint16 *p = dst;

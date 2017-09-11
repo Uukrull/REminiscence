@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "game.h"
@@ -24,8 +24,8 @@
 #include "menu.h"
 
 
-Menu::Menu(Locale *loc, ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid)
-	: _loc(loc), _ply(ply), _res(res), _stub(stub), _vid(vid) {
+Menu::Menu(ModPlayer *ply, Resource *res, SystemStub *stub, Video *vid)
+	: _ply(ply), _res(res), _stub(stub), _vid(vid) {
 }
 
 void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
@@ -65,9 +65,9 @@ void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
 		_vid->_charShadowColor = _charVar5;
 		break;
 	}
-	
+
 	drawString2(str, y, x);
-	
+
 	_vid->_charFrontColor = v1b;
 	_vid->_charTransparentColor = v2b;
 	_vid->_charShadowColor = v3b;
@@ -101,7 +101,7 @@ void Menu::loadPicture(const char *prefix) {
 void Menu::handleInfoScreen() {
 	debug(DBG_MENU, "Menu::handleInfoScreen()");
 	_vid->fadeOut();
-	switch (_loc->_ver) {
+	switch (_res->_ver) {
 	case VER_FR:
 		loadPicture("instru_f");
 		break;
@@ -125,16 +125,16 @@ void Menu::handleInfoScreen() {
 
 void Menu::handleSkillScreen(uint8 &new_skill) {
 	debug(DBG_MENU, "Menu::handleSkillScreen()");
-	static const uint8 option_colors[3][3] = { { 2, 3, 3 }, { 3, 2, 3}, { 3, 3, 2 } };	
+	static const uint8 option_colors[3][3] = { { 2, 3, 3 }, { 3, 2, 3}, { 3, 3, 2 } };
 	_vid->fadeOut();
 	loadPicture("menu3");
 	_vid->fullRefresh();
-	drawString(_loc->get(Locale::LI_12_SKILL_LEVEL), 12, 4, 3);
+	drawString(_res->getMenuString(LocaleData::LI_12_SKILL_LEVEL), 12, 4, 3);
 	int skill_level = new_skill;
 	do {
-		drawString(_loc->get(Locale::LI_13_EASY), 15, 14, option_colors[skill_level][0]);
-		drawString(_loc->get(Locale::LI_14_NORMAL), 17, 14, option_colors[skill_level][1]);
-		drawString(_loc->get(Locale::LI_15_EXPERT), 19, 14, option_colors[skill_level][2]);
+		drawString(_res->getMenuString(LocaleData::LI_13_EASY), 15, 14, option_colors[skill_level][0]);
+		drawString(_res->getMenuString(LocaleData::LI_14_NORMAL), 17, 14, option_colors[skill_level][1]);
+		drawString(_res->getMenuString(LocaleData::LI_15_EXPERT), 19, 14, option_colors[skill_level][2]);
 
 		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
@@ -176,8 +176,8 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 	int len = 0;
 	do {
 		loadPicture("menu2");
-		drawString2(_loc->get(Locale::LI_16_ENTER_PASSWORD1), 15, 3);
-		drawString2(_loc->get(Locale::LI_17_ENTER_PASSWORD2), 17, 3);
+		drawString2(_res->getMenuString(LocaleData::LI_16_ENTER_PASSWORD1), 15, 3);
+		drawString2(_res->getMenuString(LocaleData::LI_17_ENTER_PASSWORD2), 17, 3);
 
 		for (int i = 0; i < len; ++i) {
 			_vid->drawChar((uint8)password[i], 21, i + 15);
@@ -220,7 +220,7 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 				}
 			}
 			return false;
-		}		
+		}
 	} while (!_stub->_pi.quit);
 	return false;
 }
@@ -250,13 +250,13 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 		int selected_menu_entry = -1;
 		for (int i = 0; i < 5; ++i) {
 			int color = (i == menu_entry) ? 2 : 3;
-			drawString(_loc->get(Locale::LI_07_START + i), 16 + i * 2, 20, color);
+			drawString(_res->getMenuString(LocaleData::LI_07_START + i), 16 + i * 2, 20, color);
 		}
 
 		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
-		
+
 		if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
 			_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;
 			if (menu_entry != 0) {
@@ -277,7 +277,7 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			_stub->_pi.enter = false;
 			selected_menu_entry = menu_entry;
 		}
-		
+
 		if (selected_menu_entry != -1) {
 			switch (selected_menu_entry) {
 			case MENU_OPTION_ITEM_START:

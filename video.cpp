@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "resource.h"
@@ -91,11 +91,11 @@ void Video::updateScreen() {
 				int16 x = (i - nh) * SCREENBLOCK_W;
 				_stub->copyRect(x, j * SCREENBLOCK_H, nh * SCREENBLOCK_W, SCREENBLOCK_H, _frontLayer, 256);
 				++count;
-			}			
+			}
 			p += GAMESCREEN_W / SCREENBLOCK_W;
 		}
 		if (count != 0) {
-			_stub->updateScreen(_shakeOffset);			
+			_stub->updateScreen(_shakeOffset);
 		}
 	}
 	if (_shakeOffset != 0) {
@@ -107,23 +107,23 @@ void Video::updateScreen() {
 void Video::fullRefresh() {
 	debug(DBG_VIDEO, "Video::fullRefresh()");
 	_fullRefresh = true;
-	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));	
-}	
+	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
+}
 
 void Video::fadeOut() {
 	debug(DBG_VIDEO, "Video::fadeOut()");
-	for (int i = 0; i <= 6; ++i) {
+	for (int step = 16; step >= 0; --step) {
 		for (int c = 0; c < 256; ++c) {
 			Color col;
 			_stub->getPaletteEntry(c, &col);
-			col.r >>= 1;
-			col.g >>= 1;
-			col.b >>= 1;
+			col.r = col.r * step >> 4;
+			col.g = col.g * step >> 4;
+			col.b = col.b * step >> 4;
 			_stub->setPaletteEntry(c, &col);
 		}
 		fullRefresh();
 		updateScreen();
-		_stub->sleep(120);
+		_stub->sleep(50);
 	}
 }
 
@@ -184,7 +184,7 @@ void Video::copyLevelMap(uint16 room) {
 	int32 off = READ_LE_UINT32(_res->_map + room * 6);
 	if (off == 0) {
 		error("Invalid room %d", room);
-	}	
+	}
 	bool packed = true;
 	if (off < 0) {
 		off = -off;
@@ -283,7 +283,7 @@ void Video::drawSpriteSub2(const uint8 *src, uint8 *dst, int pitch, int h, int w
 		src += pitch;
 		dst += 256;
 	}
-}	
+}
 
 void Video::drawSpriteSub3(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask) {
 	debug(DBG_VIDEO, "Video::drawSpriteSub3(0x%X, 0x%X, 0x%X, 0x%X)", pitch, w, h, colMask);
@@ -348,7 +348,7 @@ void Video::drawChar(uint8 c, int16 y, int16 x) {
 			uint8 c1 = (*src & 0xF0) >> 4;
 			uint8 c2 = (*src & 0x0F) >> 0;
 			++src;
-						
+
 			if (c1 != 0) {
 				if (c1 != 2) {
 					*dst = _charFrontColor;
@@ -359,7 +359,7 @@ void Video::drawChar(uint8 c, int16 y, int16 x) {
 				*dst = _charTransparentColor;
 			}
 			++dst;
-			
+
 			if (c2 != 0) {
 				if (c2 != 2) {
 					*dst = _charFrontColor;

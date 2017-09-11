@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,9 +13,9 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
- 
+
 #ifndef __VIDEO_H__
 #define __VIDEO_H__
 
@@ -38,9 +38,9 @@ struct Video {
 	static const uint8 _conradPal2[];
 	static const uint8 _textPal[];
 	static const uint8 _palSlot0xF[];
-	
+
 	Resource *_res;
-	SystemStub *_stub;	
+	SystemStub *_stub;
 
 	uint8 *_frontLayer;
 	uint8 *_backLayer;
@@ -54,10 +54,10 @@ struct Video {
 	uint8 *_screenBlocks;
 	bool _fullRefresh;
 	uint8 _shakeOffset;
-	
+
 	Video(Resource *res, SystemStub *stub);
 	~Video();
-	
+
 	void markBlockAsDirty(int16 x, int16 y, uint16 w, uint16 h);
 	void updateScreen();
 	void fullRefresh();

@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "graphics.h"
@@ -83,7 +83,7 @@ void Graphics::drawLine(uint8 color, const Point *pt1, const Point *pt2) {
 				pt.x += dxincr2;
 				pt.y += dyincr2;
 				oct += octincr2;
-			}			
+			}
 			drawPoint(color, &pt);
 		}
 	}
@@ -91,7 +91,7 @@ void Graphics::drawLine(uint8 color, const Point *pt1, const Point *pt2) {
 
 void Graphics::addEllipseRadius(int16 y, int16 x1, int16 x2) {
 	debug(DBG_VIDEO, "Graphics::addEllipseRadius()");
-	if (y >= 0 && y <= _crh) { 
+	if (y >= 0 && y <= _crh) {
 		y = (y - _areaPoints[0]) * 2;
 		if (x1 < 0) {
 			x1 = 0;
@@ -121,7 +121,7 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 			int32 rysq  = ry * ry;
 			int32 rysq2 = ry * ry * 2;
 			int32 rysq4 = ry * ry * 4;
-						
+
 			int32 dx = 0;
 			int32 b = rx * ((rysq2 & 0xFFFF) + (rysq2 >> 16));
 			int32 a = 2 * b;
@@ -129,7 +129,7 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 			int32 ny1, ny2, nx1, nx2;
 			ny1 = ny2 = rysq4 / 2 - a + rxsq;
 			nx1 = nx2 = rxsq2 - b + rysq;
-			
+
 			while (ny2 < 0) {
 				int16 x2 = pt->x + rx;
 				int16 x1 = pt->x - rx;
@@ -155,7 +155,7 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 					ny2 += nx1 + rysq2 - ny1;
 				}
 			}
-			
+
 			while (rx >= 0) {
 				bool flag2 = false;
 				int16 x2 = pt->x + rx;
@@ -189,12 +189,12 @@ void Graphics::drawEllipse(uint8 color, bool hasAlpha, const Point *pt, int16 rx
 			if (flag) {
 				++dy;
 			}
-			
+
 			while (dy <= ry) {
 				int16 ty = pt->y - dy;
 				int16 by = pt->y + dy;
 				if (ty < by) {
-					addEllipseRadius(ty, pt->x, pt->x);					
+					addEllipseRadius(ty, pt->x, pt->x);
 				}
 				addEllipseRadius(by, pt->x, pt->x);
 				++dy;
@@ -233,12 +233,12 @@ void Graphics::fillArea(uint8 color, bool hasAlpha) {
 				int16 x2 = *pts++;
 				if (x2 < _crw && x2 >= x1) {
 					int len = x2 - x1 + 1;
-					memset(dst + x1, color, len);				
+					memset(dst + x1, color, len);
 				}
 				dst += 256;
 				x1 = *pts++;
-			} while (x1 >= 0);			
-		}		
+			} while (x1 >= 0);
+		}
 	}
 }
 
@@ -317,7 +317,7 @@ static void drawPolygonHelper1(int32 &x, int16 &y, int32 &step, int16 *&pts, int
 		} else {
 			x = *pts;
 		}
-		--pts; 
+		--pts;
 		dy = *pts - y;
 		--pts;
 		dx = *pts - x;
@@ -327,7 +327,7 @@ static void drawPolygonHelper1(int32 &x, int16 &y, int32 &step, int16 *&pts, int
 		step = calcPolyStep1(dx, dy);
 	}
 }
-	
+
 static void drawPolygonHelper2(int32 &x, int16 &y, int32 &step, int16 *&pts, int16 *&start) {
 	bool first = true;
 	x = *start++;
@@ -359,7 +359,7 @@ void Graphics::drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 n
 	int16 xmin, xmax, ymin, ymax;
 	xmin = xmax = pts[0].x;
 	ymin = ymax = pts[0].y;
-		
+
 	int16 *spts = apts1;
 	*apts1++ = *apts2++ = pts[0].x;
 	*apts1++ = *apts2++ = pts[0].y;
@@ -376,7 +376,7 @@ void Graphics::drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 n
 		}
 		*apts1++ = *apts2++ = x;
 		*apts1++ = *apts2++ = y;
-		
+
 		if (xmin > x) {
 			xmin = x;
 		}
@@ -397,10 +397,10 @@ void Graphics::drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 n
 		return;
 	}
 	int16 x, dx, y, dy;
-	int32 a, b, d, f;	
+	int32 a, b, d, f;
 	int32 xstep1 = 0;
 	int32 xstep2 = 0;
-	
+
 	apts1 = &spts[numPts * 2];
 	xmax = _crw - 1;
 	ymax = _crh - 1;
@@ -431,7 +431,7 @@ void Graphics::drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 n
 		}
 		d /= 2;
 		b -= d;
-		
+
 		do {
 			x0 = *spts++;
 			y0 = *spts++;
@@ -711,7 +711,7 @@ gfx_drawPolygonEnd:
 			--dy;
 		} while (dy >= 0);
 	}
-	
+
 gfx_fillArea:
 	*rpts++ = -1;
 	fillArea(color, hasAlpha);

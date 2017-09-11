@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,20 +13,19 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include <ctime>
 #include "file.h"
-#include "locale.h"
 #include "systemstub.h"
 #include "unpack.h"
 #include "game.h"
 
 
 Game::Game(SystemStub *stub, const char *dataPath, const char *savePath, Version ver)
-	: _cut(&_modPly, &_res, stub, &_vid, ver), _loc(ver), _menu(&_loc, &_modPly, &_res, stub, &_vid), 
-	_mix(stub), _modPly(&_mix, dataPath), _res(dataPath), _sfxPly(&_mix), _vid(&_res, stub),
+	: _cut(&_modPly, &_res, stub, &_vid, ver), _menu(&_modPly, &_res, stub, &_vid),
+	_mix(stub), _modPly(&_mix, dataPath), _res(dataPath, ver), _sfxPly(&_mix), _vid(&_res, stub),
 	_stub(stub), _savePath(savePath) {
 	_stateSlot = 1;
 	_inp_demo = 0;
@@ -36,10 +35,11 @@ Game::Game(SystemStub *stub, const char *dataPath, const char *savePath, Version
 
 void Game::run() {
 	_stub->init("REminiscence", Video::GAMESCREEN_W, Video::GAMESCREEN_H);
-	
+
 	_randSeed = time(0);
+	_res.load_TEXT();
 	_res.load("FB_TXT", Resource::OT_FNT);
-	
+
 #ifndef BYPASS_PROTECTION
 	while (!handleProtectionScreen());
 	if (_stub->_pi.quit) {
@@ -48,21 +48,21 @@ void Game::run() {
 #endif
 
 	_mix.init();
-	
+
 	playCutscene(0x40);
 	playCutscene(0x0D);
 	if (!_cut._interrupted) {
 		playCutscene(0x4A);
 	}
-	
+
 	_res.load("GLOBAL", Resource::OT_ICN);
 	_res.load("PERSO", Resource::OT_SPR);
 	_res.load_SPR_OFF("PERSO", _res._spr1);
 	_res.load_FIB("GLOBAL");
-	
+
 	_skillLevel = 1;
 	_currentLevel = 0;
-	
+
 	while (!_stub->_pi.quit && _menu.handleTitleScreen(_skillLevel, _currentLevel)) {
 		if (_currentLevel == 7) {
 			_vid.fadeOut();
@@ -75,11 +75,13 @@ void Game::run() {
 			mainLoop();
 		}
 	}
-	
+
+	_res.free_TEXT();
+
 	_mix.free();
 	_stub->destroy();
 }
-	
+
 void Game::resetGameState() {
 	_animBuffers._states[0] = _animBuffer0State;
 	_animBuffers._curPos[0] = 0xFF;
@@ -134,9 +136,9 @@ void Game::mainLoop() {
 					}
 					continue;
 				}
-				
+
 			}
-		}		
+		}
 		memcpy(_vid._frontLayer, _vid._backLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
 		pge_getInput();
 		pge_prepare();
@@ -146,7 +148,7 @@ void Game::mainLoop() {
 			LivePGE *pge = _pge_liveTable2[i];
 			if (pge) {
 				_col_currentPiegeGridPosY = (pge->pos_y / 36) & ~1;
-				_col_currentPiegeGridPosX = (pge->pos_x + 8) / 16;
+				_col_currentPiegeGridPosX = (pge->pos_x + 8) >> 4;
 				pge_process(pge);
 			}
 		}
@@ -174,18 +176,8 @@ void Game::mainLoop() {
 		if (_blinkingConradCounter != 0) {
 			--_blinkingConradCounter;
 		}
-
 		_vid.updateScreen();
-		static uint32 tstamp = 0;
-		if (!(_stub->_pi.dbgMask & PlayerInput::DF_FASTMODE)) {
-			int32 delay = _stub->getTimeStamp() - tstamp;
-			int32 pause = 30 - delay;
-			if (pause > 0) {
-				_stub->sleep(pause);
-			}
-			tstamp = _stub->getTimeStamp();
-		}
-		
+		updateTiming();
 		drawStoryTexts();
 		if (_stub->_pi.backspace) {
 			_stub->_pi.backspace = false;
@@ -199,6 +191,17 @@ void Game::mainLoop() {
 		}
 		inp_handleSpecialKeys();
 	}
+}
+
+void Game::updateTiming() {
+	static uint32 tstamp = 0;
+	int32 delay = _stub->getTimeStamp() - tstamp;
+	int32 pause = (_stub->_pi.dbgMask & PlayerInput::DF_FASTMODE) ? 20 : 30;
+	pause -= delay;
+	if (pause > 0) {
+		_stub->sleep(pause);
+	}
+	tstamp = _stub->getTimeStamp();
 }
 
 void Game::playCutscene(int id) {
@@ -311,11 +314,11 @@ bool Game::handleConfigPanel() {
 	const int y = 10;
 	const int w = 17;
 	const int h = 12;
-		
+
 	_vid._charShadowColor = 0xE2;
 	_vid._charFrontColor = 0xEE;
 	_vid._charTransparentColor = 0xFF;
-	
+
 	_vid.drawChar(0x81, y, x);
 	for (i = 1; i < w; ++i) {
 		_vid.drawChar(0x85, y, x + i);
@@ -334,8 +337,8 @@ bool Game::handleConfigPanel() {
 	for (i = 1; i < w; ++i) {
 		_vid.drawChar(0x88, y + h, x + i);
 	}
-	_vid.drawChar(0x84, y + h, x + w);	
-	
+	_vid.drawChar(0x84, y + h, x + w);
+
 	_menu._charVar3 = 0xE4;
 	_menu._charVar4 = 0xE5;
 	_menu._charVar1 = 0xE2;
@@ -346,18 +349,18 @@ bool Game::handleConfigPanel() {
 	uint8 colors[] = { 2, 3, 3, 3 };
 	int current = 0;
 	while (!_stub->_pi.quit) {
-		_menu.drawString(_loc.get(Locale::LI_18_RESUME_GAME), y + 2, 9, colors[0]);
-		_menu.drawString(_loc.get(Locale::LI_20_LOAD_GAME), y + 4, 9, colors[1]);
-		_menu.drawString(_loc.get(Locale::LI_21_SAVE_GAME), y + 6, 9, colors[2]);
-		_menu.drawString(_loc.get(Locale::LI_19_ABORT_GAME), y + 8, 9, colors[3]);
+		_menu.drawString(_res.getMenuString(LocaleData::LI_18_RESUME_GAME), y + 2, 9, colors[0]);
+		_menu.drawString(_res.getMenuString(LocaleData::LI_20_LOAD_GAME), y + 4, 9, colors[1]);
+		_menu.drawString(_res.getMenuString(LocaleData::LI_21_SAVE_GAME), y + 6, 9, colors[2]);
+		_menu.drawString(_res.getMenuString(LocaleData::LI_19_ABORT_GAME), y + 8, 9, colors[3]);
 		char slotItem[30];
-		sprintf(slotItem, "%s : %d-%02d", _loc.get(Locale::LI_22_SAVE_SLOT), _currentLevel + 1, _stateSlot);
+		sprintf(slotItem, "%s : %d-%02d", _res.getMenuString(LocaleData::LI_22_SAVE_SLOT), _currentLevel + 1, _stateSlot);
 		_menu.drawString(slotItem, y + 10, 9, 1);
-		
+
 		_vid.updateScreen();
 		_stub->sleep(80);
 		inp_update();
-		
+
 		int prev = current;
 		if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
 			_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;
@@ -402,7 +405,7 @@ bool Game::handleConfigPanel() {
 }
 
 bool Game::handleContinueAbort() {
-	playCutscene(0x48);	
+	playCutscene(0x48);
 	char textBuf[50];
 	int timeout = 100;
 	int current_color = 0;
@@ -413,14 +416,14 @@ bool Game::handleContinueAbort() {
 	memcpy(_vid._tempLayer, _vid._frontLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
 	while (timeout >= 0 && !_stub->_pi.quit) {
 		const char *str;
-		str = _loc.get(Locale::LI_01_CONTINUE_OR_ABORT);
+		str = _res.getMenuString(LocaleData::LI_01_CONTINUE_OR_ABORT);
 		_vid.drawString(str, (256 - strlen(str) * 8) / 2, 64, 0xE3);
-		str = _loc.get(Locale::LI_02_TIME);
+		str = _res.getMenuString(LocaleData::LI_02_TIME);
 		sprintf(textBuf, "%s : %d", str, timeout / 10);
 		_vid.drawString(textBuf, 96, 88, 0xE3);
-		str = _loc.get(Locale::LI_03_CONTINUE);
+		str = _res.getMenuString(LocaleData::LI_03_CONTINUE);
 		_vid.drawString(str, (256 - strlen(str) * 8) / 2, 104, colors[0]);
-		str = _loc.get(Locale::LI_04_ABORT);
+		str = _res.getMenuString(LocaleData::LI_04_ABORT);
 		_vid.drawString(str, (256 - strlen(str) * 8) / 2, 112, colors[1]);
 		sprintf(textBuf, "SCORE  %08lu", _score);
 		_vid.drawString(textBuf, 64, 154, 0xE3);
@@ -456,12 +459,12 @@ bool Game::handleContinueAbort() {
 		} else {
 			col.b -= 2;
 			col.g -= 2;
-		}		
+		}
 		_stub->setPaletteEntry(0xE4, &col);
 		_stub->processEvents();
 		_stub->sleep(100);
 		--timeout;
-		memcpy(_vid._frontLayer, _vid._tempLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);		
+		memcpy(_vid._frontLayer, _vid._tempLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
 	}
 	return false;
 }
@@ -470,9 +473,9 @@ bool Game::handleProtectionScreen() {
 	bool valid = true;
 	_cut.prepare();
 	_cut.copyPalette(_protectionPal, 0);
-	_cut.setPalette0xC();
+	_cut.updatePalette();
 	_cut._gfx.setClippingRect(64, 48, 128, 128);
-	
+
 	_menu._charVar1 = 0xE0;
 	_menu._charVar2 = 0xEF;
 	_menu._charVar4 = 0xE5;
@@ -540,7 +543,7 @@ bool Game::handleProtectionScreen() {
 				break;
 			}
 		}
-	} while (!_stub->_pi.quit);	
+	} while (!_stub->_pi.quit);
 	_vid.fadeOut();
 	return valid;
 }
@@ -558,9 +561,9 @@ void Game::printLevelCode() {
 
 void Game::printSaveStateCompleted() {
 	if (_saveStateCompleted) {
-		const char *str = _loc.get(Locale::LI_05_COMPLETED);
+		const char *str = _res.getMenuString(LocaleData::LI_05_COMPLETED);
 		_vid.drawString(str, (176 - strlen(str) * 8) / 2, 34, 0xE6);
-	}	
+	}
 }
 
 void Game::drawLevelTexts() {
@@ -591,14 +594,15 @@ void Game::drawLevelTexts() {
 void Game::drawStoryTexts() {
 	if (_textToDisplay != 0xFFFF) {
 		uint16 text_col_mask = 0xE8;
-		const uint8 *str = _loc._stringsTable + READ_LE_UINT16(_loc._stringsTable + _textToDisplay * 2);
+		const uint8 *str = _res.getGameString(_textToDisplay);
 		memcpy(_vid._tempLayer, _vid._frontLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
+		int textSpeechSegment = 0;
 		while (!_stub->_pi.quit) {
 			drawIcon(_currentInventoryIconNum, 80, 8, 0xA);
 			if (*str == 0xFF) {
 				text_col_mask = READ_LE_UINT16(str + 1);
 				str += 3;
-			}			
+			}
 			int16 text_y_pos = 26;
 			while (1) {
 				uint16 len = getLineLength(str);
@@ -609,10 +613,18 @@ void Game::drawStoryTexts() {
 				}
 				++str;
 			}
+			MixerChunk chunk;
+			_res.load_VCE(_textToDisplay, textSpeechSegment++, &chunk.data, &chunk.len);
+			if (chunk.data) {
+				_mix.play(&chunk, 32000, Mixer::MAX_VOLUME);
+			}
 			_vid.updateScreen();
 			while (!_stub->_pi.backspace && !_stub->_pi.quit) {
 				inp_update();
 				_stub->sleep(80);
+			}
+			if (chunk.data) {
+				_mix.stopAll();
 			}
 			_stub->_pi.backspace = false;
 			if (*str == 0) {
@@ -656,7 +668,7 @@ void Game::prepareAnims() {
 		pge_room = _res._ctData[CT_LEFT_ROOM + _currentRoom];
 		if (pge_room >= 0 && pge_room < 0x40) {
 			pge = _pge_liveTable1[pge_room];
-			while (pge) {			
+			while (pge) {
 				if (pge->pos_x > 224) {
 					prepareAnimsHelper(pge, -256, 0);
 				}
@@ -666,13 +678,13 @@ void Game::prepareAnims() {
 		pge_room = _res._ctData[CT_RIGHT_ROOM + _currentRoom];
 		if (pge_room >= 0 && pge_room < 0x40) {
 			pge = _pge_liveTable1[pge_room];
-			while (pge) {			
+			while (pge) {
 				if (pge->pos_x <= 32) {
 					prepareAnimsHelper(pge, 256, 0);
 				}
 				pge = pge->next_PGE_in_room;
 			}
-		}		
+		}
 	}
 }
 
@@ -701,7 +713,7 @@ void Game::prepareAnimsHelper(LivePGE *pge, int16 dx, int16 dy) {
 		} else {
 			xpos = dx + pge->pos_x - (int8)dataPtr[0];
 		}
-		
+
 		ypos = dy + pge->pos_y - (int8)dataPtr[1] + 2;
 		if (xpos <= -32 || xpos >= 256 || ypos < -48 || ypos >= 224) {
 			return;
@@ -732,7 +744,7 @@ void Game::prepareAnimsHelper(LivePGE *pge, int16 dx, int16 dy) {
 }
 
 void Game::drawAnims() {
-	debug(DBG_GAME, "Game::drawAnims()");	
+	debug(DBG_GAME, "Game::drawAnims()");
 	_eraseBackground = false;
 	drawAnimBuffer(2, _animBuffer2State);
 	drawAnimBuffer(1, _animBuffer1State);
@@ -767,7 +779,7 @@ void Game::drawAnimBuffer(uint8 stateNum, AnimBufferState *state) {
 			}
 			--state;
 		} while (--numAnims != 0);
-	}	
+	}
 }
 
 void Game::drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
@@ -797,7 +809,7 @@ void Game::drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
 void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
 	debug(DBG_GAME, "Game::drawObjectFrame(0x%X, %d, %d, 0x%X)", dataPtr, x, y, flags);
 	const uint8 *src = _bankDataPtrs + dataPtr[0] * 32;
-	
+
 	int16 sprite_y = y + dataPtr[2];
 	int16 sprite_x;
 	if (flags & 2) {
@@ -805,22 +817,22 @@ void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) 
 	} else {
 		sprite_x = x + dataPtr[1];
 	}
-	
+
 	uint8 sprite_flags = dataPtr[3];
 	if (flags & 2) {
 		sprite_flags ^= 0x10;
 	}
-	
+
 	uint8 sprite_h = (((sprite_flags >> 0) & 3) + 1) * 8;
 	uint8 sprite_w = (((sprite_flags >> 2) & 3) + 1) * 8;
-	
+
 	int size = sprite_w * sprite_h / 2;
 	for (int i = 0; i < size; ++i) {
 		uint8 col = *src++;
 		_res._memBuf[i * 2 + 0] = (col & 0xF0) >> 4;
 		_res._memBuf[i * 2 + 1] = (col & 0x0F) >> 0;
 	}
-		
+
 	src = _res._memBuf;
 	bool sprite_mirror_x = false;
 	int16 sprite_clipped_w;
@@ -849,7 +861,7 @@ void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) 
 	if (sprite_clipped_w <= 0) {
 		return;
 	}
-	
+
 	int16 sprite_clipped_h;
 	if (sprite_y >= 0) {
 		sprite_clipped_h = 224 - sprite_h;
@@ -870,7 +882,7 @@ void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) 
 	if (!sprite_mirror_x && (sprite_flags & 0x10)) {
 		src += sprite_w - 1;
 	}
-	
+
 	uint32 dst_offset = 256 * sprite_y + sprite_x;
 	uint8 sprite_col_mask = (flags & 0x60) >> 1;
 
@@ -935,10 +947,10 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	}
 	uint16 sprite_h = a;
 	uint16 sprite_w = b;
-	
+
 	const uint8 *src = dataPtr;
 	bool var14 = false;
-	
+
 	int16 sprite_clipped_w;
 	if (pos_x >= 0) {
 		if (pos_x + sprite_w < 256) {
@@ -951,7 +963,7 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 					src += (sprite_w - 1) * sprite_h;
 				} else {
 					src += sprite_w - 1;
-				}	
+				}
 			}
 		}
 	} else {
@@ -979,7 +991,7 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	if (sprite_clipped_w <= 0) {
 		return;
 	}
-		
+
 	int16 sprite_clipped_h;
 	if (pos_y >= 0) {
 		if (pos_y < 224 - sprite_h) {
@@ -999,7 +1011,7 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	if (sprite_clipped_h <= 0) {
 		return;
 	}
-	
+
 	if (!var14 && (flags & 2)) {
 		if (var16) {
 			src += sprite_h * (sprite_w - 1);
@@ -1007,7 +1019,7 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 			src += sprite_w - 1;
 		}
 	}
-	
+
 	uint32 dst_offset = 256 * pos_y + pos_x;
 	uint8 sprite_col_mask = ((flags & 0x60) == 0x60) ? 0x50 : 0x40;
 
@@ -1029,9 +1041,9 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	_vid.markBlockAsDirty(pos_x, pos_y, sprite_clipped_w, sprite_clipped_h);
 }
 
-uint8 *Game::loadBankData(uint16 MbkEntryNum) {
-	debug(DBG_GAME, "Game::loadBankData(%d)", MbkEntryNum);
-	MbkEntry *me = &_res._mbk[MbkEntryNum];
+uint8 *Game::loadBankData(uint16 mbkEntryNum) {
+	debug(DBG_GAME, "Game::loadBankData(%d)", mbkEntryNum);
+	MbkEntry *me = &_res._mbk[mbkEntryNum];
 	const uint16 avail = _lastBankData - _firstBankData;
 	const uint16 size = (me->len & 0x7FFF) * 32;
 	if (avail < size) {
@@ -1040,19 +1052,20 @@ uint8 *Game::loadBankData(uint16 MbkEntryNum) {
 		_curBankSlot->ptr = 0;
 		_firstBankData = _bankData;
 	}
-	_curBankSlot->entryNum = MbkEntryNum;
+	_curBankSlot->entryNum = mbkEntryNum;
 	_curBankSlot->ptr = _firstBankData;
 	++_curBankSlot;
 	_curBankSlot->entryNum = 0xFFFF;
 	_curBankSlot->ptr = 0;
 	const uint8 *data = _res._mbkData + me->offset;
 	if (me->len & 0x8000) {
-		warning("me->len & 0x8000");
+		warning("Uncompressed bank data %d", mbkEntryNum);
 		memcpy(_firstBankData, data, size);
 	} else {
 		assert(me->offset != 0);
-		bool ret = delphine_unpack(_firstBankData, data, 0);
-		assert(ret);
+		if (!delphine_unpack(_firstBankData, data, 0)) {
+			error("Bad CRC for bank data %d", mbkEntryNum);
+		}
 	}
 	uint8 *bankData = _firstBankData;
 	_firstBankData += size;
@@ -1072,7 +1085,7 @@ int Game::loadMonsterSprites(LivePGE *pge) {
 	if (pge->room_location != _currentRoom) {
 		return 0;
 	}
-	
+
 	const uint8 *mList = _monsterListLevels[_currentLevel];
 	while (*mList != init_pge->obj_node_number) {
 		if (*mList == 0xFF) { // end of list
@@ -1097,9 +1110,9 @@ void Game::loadLevelMap() {
 	_vid.setLevelPalettes();
 }
 
-void Game::loadLevelData() {	
+void Game::loadLevelData() {
 	_res.clearLevelRes();
-			
+
 	const Level *lvl = &_gameLevels[_currentLevel];
 	_res.load(lvl->name, Resource::OT_SPC);
 	_res.load(lvl->name, Resource::OT_MBK);
@@ -1107,7 +1120,7 @@ void Game::loadLevelData() {
 	_res.load(lvl->name, Resource::OT_CT);
 	_res.load(lvl->name, Resource::OT_MAP);
 	_res.load(lvl->name, Resource::OT_PAL);
-	
+
 	_res.load(lvl->name2, Resource::OT_PGE);
 	_res.load(lvl->name2, Resource::OT_OBJ);
 	_res.load(lvl->name2, Resource::OT_ANI);
@@ -1123,13 +1136,13 @@ void Game::loadLevelData() {
 	_curBankSlot->ptr = 0;
 	_firstBankData = _bankData;
 	_printLevelCodeCounter = 150;
-	
+
 	_col_slots2Cur = _col_slots2;
 	_col_slots2Next = 0;
 
 	memset(_pge_liveTable2, 0, sizeof(_pge_liveTable2));
 	memset(_pge_liveTable1, 0, sizeof(_pge_liveTable1));
-	
+
 	_currentRoom = _res._pgeInit[0].init_room;
 	uint16 n = _res._pgeNum;
 	while (n--) {
@@ -1231,7 +1244,7 @@ void Game::handleInventory() {
 		items[num_items].icon_num = 0xFF;
 		int current_item = 0;
 		int num_lines = (num_items - 1) / 4 + 1;
-		int current_line = 0;		
+		int current_line = 0;
 		bool display_score = false;
 		while (!_stub->_pi.backspace && !_stub->_pi.quit) {
 			// draw inventory background
@@ -1248,7 +1261,7 @@ void Game::handleInventory() {
 				} while (--icon_w);
 				icon_y += 16;
 			} while (--icon_h);
-			
+
 			if (!display_score) {
 				int icon_x_pos = 72;
 				for (int i = 0; i < 4; ++i) {
@@ -1266,7 +1279,7 @@ void Game::handleInventory() {
 						if (items[item_it].init_pge->init_flags & 4) {
 							char counterValue[10];
 							sprintf(counterValue, "%d", selected_pge->life);
-							_vid.drawString(counterValue, (256 - strlen(counterValue) * 8) / 2, 197, 0xED);			
+							_vid.drawString(counterValue, (256 - strlen(counterValue) * 8) / 2, 197, 0xED);
 						}
 					}
 					icon_x_pos += 32;
@@ -1281,16 +1294,16 @@ void Game::handleInventory() {
 				char textBuf[50];
 				sprintf(textBuf, "SCORE %08lu", _score);
 				_vid.drawString(textBuf, (114 - strlen(textBuf) * 8) / 2 + 72, 158, 0xE5);
-				sprintf(textBuf, "%s:%s", _loc.get(Locale::LI_06_LEVEL), _loc.get(Locale::LI_13_EASY + _skillLevel));
+				sprintf(textBuf, "%s:%s", _res.getMenuString(LocaleData::LI_06_LEVEL), _res.getMenuString(LocaleData::LI_13_EASY + _skillLevel));
 				_vid.drawString(textBuf, (114 - strlen(textBuf) * 8) / 2 + 72, 166, 0xE5);
 			}
-		
+
 			_vid.updateScreen();
 			_stub->sleep(80);
 			inp_update();
 
 			if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
-				_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;				
+				_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;
 				if (current_line < num_lines - 1) {
 					++current_line;
 					current_item = current_line * 4;
@@ -1310,7 +1323,7 @@ void Game::handleInventory() {
 					if (item_num > 0) {
 						--current_item;
 					}
-				}				
+				}
 			}
 			if (_stub->_pi.dirMask & PlayerInput::DIR_RIGHT) {
 				_stub->_pi.dirMask &= ~PlayerInput::DIR_RIGHT;

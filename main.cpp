@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,14 +13,14 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "file.h"
 #include "game.h"
 #include "systemstub.h"
 
-static const char *USAGE = 
+static const char *USAGE =
 	"REminiscence - Flashback Interpreter\n"
 	"Usage: rs [OPTIONS]...\n"
 	"  --datapath=PATH   Path to data files (default 'DATA')\n"
@@ -42,8 +42,8 @@ static Version detectVersion(const char *dataPath) {
 		const char *filename;
 		Version ver;
 	} checkTable[] = {
-		{ "FR_CINE.BIN", VER_FR },
 		{ "ENGCINE.BIN", VER_EN },
+		{ "FR_CINE.BIN", VER_FR },
 		{ "GERCINE.BIN", VER_DE },
 		{ "SPACINE.BIN", VER_SP }
 	};

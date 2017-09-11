@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,7 +13,7 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "zlib.h"
@@ -101,7 +101,7 @@ struct zlibFile : File_impl {
 			gzseek(_fp, pos, SEEK_SET);
 		}
 		return sz;
-	}	
+	}
 	void seek(int32 off) {
 		if (_fp) {
 			gzseek(_fp, off, SEEK_SET);
@@ -139,7 +139,7 @@ File::~File() {
 	delete _impl;
 }
 
-bool File::open(const char *filename, const char *directory, const char *mode) {	
+bool File::open(const char *filename, const char *directory, const char *mode) {
 	_impl->close();
 	char buf[512];
 	sprintf(buf, "%s/%s", directory, filename);

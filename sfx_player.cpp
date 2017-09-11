@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,9 +13,9 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
- 
+
 #include "mixer.h"
 #include "sfx_player.h"
 
@@ -123,7 +123,7 @@ void SfxPlayer::mixSamples(int8 *buf, int samplesLen) {
 			while (curLen != 0) {
 				int count;
 				if (loopLen > (2 << FRAC_BITS)) {
-					assert(si->loopPos + si->loopLen <= si->len);					
+					assert(si->loopPos + si->loopLen <= si->len);
 					if (pos >= loopPos + loopLen) {
 						pos -= loopLen;
 					}
@@ -138,13 +138,8 @@ void SfxPlayer::mixSamples(int8 *buf, int samplesLen) {
 					curLen = 0;
 				}
 				while (count--) {
-					assert((pos >> FRAC_BITS) < si->len);
-					int8 b0 = si->data[(pos >> FRAC_BITS)];
-					int8 b1 = si->data[(pos >> FRAC_BITS) + 1];
-					int a1 = pos & ((1 << FRAC_BITS) - 1);
-					int a0 = (1 << FRAC_BITS) - a1;
-					int b = (b0 * a0 + b1 * a1) >> FRAC_BITS;
-					Mixer::addclamp(*mixbuf++, b * si->vol / 64);
+					int out = resample3Pt(si, pos, deltaPos, FRAC_BITS);
+					Mixer::addclamp(*mixbuf++, out * si->vol / 64);
 					pos += deltaPos;
 				}
 			}

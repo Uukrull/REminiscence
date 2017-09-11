@@ -1,5 +1,5 @@
 /* REminiscence - Flashback interpreter
- * Copyright (C) 2005 Gregory Montoir
+ * Copyright (C) 2005-2007 Gregory Montoir
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,9 +13,9 @@
 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
- 
+
 #ifndef __MOD_PLAYER_H__
 #define __MOD_PLAYER_H__
 
@@ -41,8 +41,17 @@ struct ModPlayer {
 		uint16 repeatPos;
 		uint16 repeatLen;
 		int8 *data;
+
+		int8 getPCM(int offset) const {
+			if (offset < 0) {
+				offset = 0;
+			} else if (offset >= (int)len) {
+				offset = len - 1;
+			}
+			return data[offset];
+		}
 	};
-	
+
 	struct ModuleInfo {
 		char songName[21];
 		SampleInfo samples[NUM_SAMPLES];
@@ -50,7 +59,7 @@ struct ModPlayer {
 		uint8 patternOrderTable[NUM_PATTERNS];
 		uint8 *patternsTable;
 	};
-	
+
 	struct Track {
 		SampleInfo *sample;
 		uint8 volume;
@@ -68,11 +77,12 @@ struct ModPlayer {
 		int delayCounter;
 		int cutCounter;
 	};
-		
+
+	static const int8 _sineWaveTable[];
 	static const uint16 _periodTable[];
 	static const char *_modulesFiles[][2];
 	static const int _modulesFilesCount;
-	
+
 	ModuleInfo _modInfo;
 	uint8 _currentPatternOrder;
 	uint8 _currentPatternPos;
@@ -82,13 +92,14 @@ struct ModPlayer {
 	int _patternDelay;
 	int _patternLoopPos;
 	int _patternLoopCount;
-	bool _playing;
 	int _samplesLeft;
+	uint8 _songNum;
+	bool _introSongHack;
+	bool _playing;
 	Track _tracks[NUM_TRACKS];
-	uint8 _vibratoSineWaveform[64];
 	Mixer *_mix;
 	const char *_dataPath;
-	
+
 	ModPlayer(Mixer *mixer, const char *dataPath);
 
 	uint16 findPeriod(uint16 period, uint8 fineTune) const;
