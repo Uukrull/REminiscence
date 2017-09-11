@@ -92,9 +92,6 @@ void Game::pge_loadForCurrentLevel(uint16 idx) {
 	live_pge->index = idx;
 	live_pge->next_PGE_in_room = 0;
 	
-	// let's cheat :)
-//	if (index == 0) live_pge->life = 0x7FFF;
-
 	uint16 flags = 0;
 	if (init_pge->skill <= _skillLevel) {
 		if (init_pge->room_location != 0 || ((init_pge->flags & 4) && (_currentRoom == init_pge->init_room))) {
@@ -1414,7 +1411,9 @@ int Game::pge_o_unk0x68(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_saveState(ObjectOpcodeArgs *args) {
-	warning("saving state not yet implemented");
+	_saveStateCompleted = true;
+	_validSaveState = true;
+	saveGameState(0);
 	return 0xFFFF;
 }
 
@@ -2111,8 +2110,8 @@ int Game::pge_ZOrder(LivePGE *pge, int16 num, pge_ZOrderCallback compare, uint16
 	return 0;
 }
 
-void Game::pge_updateGroup(uint8 index, uint8 unk1, int16 unk2) {
-	debug(DBG_GAME, "Game::pge_updateGroup() index=0x%X unk1=0x%X unk2=0x%X", index, unk1, unk2);
+void Game::pge_updateGroup(uint8 idx, uint8 unk1, int16 unk2) {
+	debug(DBG_GAME, "Game::pge_updateGroup() idx=0x%X unk1=0x%X unk2=0x%X", idx, unk1, unk2);
 	LivePGE *pge = &_pgeLive[unk1];
 	if (!(pge->flags & 4)) {
 		if (!(pge->init_PGE->flags & 1)) {
@@ -2123,7 +2122,7 @@ void Game::pge_updateGroup(uint8 index, uint8 unk1, int16 unk2) {
 	}
 	if (unk2 <= 4) {
 		uint8 pge_room = pge->room_location;
-		pge = &_pgeLive[index];
+		pge = &_pgeLive[idx];
 		if (pge_room != pge->room_location) {
 			return;
 		}
@@ -2139,7 +2138,7 @@ void Game::pge_updateGroup(uint8 index, uint8 unk1, int16 unk2) {
 		GroupPGE *_ax = _pge_groupsTable[unk1];
 		_pge_groupsTable[unk1] = le;
 		le->next_entry = _ax;
-		le->index = index;
+		le->index = idx;
 		le->group_id = unk2;
 	}
 }

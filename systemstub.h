@@ -28,6 +28,11 @@ struct PlayerInput {
 		DIR_LEFT  = 1 << 2,
 		DIR_RIGHT = 1 << 3
 	};
+	enum {
+		DF_FASTMODE = 1 << 0,
+		DF_DBLOCKS  = 1 << 1,
+		DF_SETLIFE  = 1 << 2
+	};
 
 	uint8 dirMask;
 	bool enter;
@@ -37,7 +42,11 @@ struct PlayerInput {
 	
 	char lastChar;
 	
-	bool fastMode;
+	bool save;
+	bool load;
+	int stateSlot;
+	
+	uint8 dbgMask;
 	bool quit;
 };
 
@@ -86,5 +95,6 @@ struct MutexStack {
 };
 
 extern SystemStub *SystemStub_SDL_create();
+extern SystemStub *SystemStub_Win32_create();
 
-#endif
+#endif // __SYSTEMSTUB_H__

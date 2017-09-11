@@ -35,4 +35,4 @@ struct Graphics {
 	void drawPolygon(uint8 color, bool hasAlpha, const Point *pts, uint8 numPts);
 };
 
-#endif
+#endif // __GRAPHICS_H__

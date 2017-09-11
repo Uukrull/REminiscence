@@ -1,6 +1,6 @@
 
 REminiscence README
-Release version: 0.1.2 (Feb 7 2005)
+Release version: 0.1.3 (Feb 15 2005)
 -------------------------------------------------------------------------------
 
 About:
@@ -22,7 +22,7 @@ Compiling:
 ----------
 
 Tweak the Makefile if needed and type make (only gcc3 has been tested so far).
-The SDL library is required.
+The SDL and zlib libraries are required.
 
 Running:
 --------
@@ -56,7 +56,9 @@ Here are the various in game hotkeys :
     Backspace       display the inventory
     Alt Enter       toggle windowed/fullscreen mode
     Alt + and -     change video scaler
-    Ctrl F          toggle fast mode
+    Ctrl S          save game state
+    Ctrl L          load game state
+    Ctrl + and -    change game state slot
 
 Credits:
 --------

@@ -186,4 +186,4 @@ struct SoundFx {
 	uint8 *data;
 };
 
-#endif
+#endif // __INTERN_H__

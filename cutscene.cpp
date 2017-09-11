@@ -16,7 +16,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "game.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "video.h"
@@ -29,7 +28,7 @@ Cutscene::Cutscene(Resource *res, SystemStub *stub, Video *vid, Version ver)
 
 void Cutscene::sync() {
 	// XXX input handling
-	if (!_stub->_pi.fastMode) {
+	if (!(_stub->_pi.dbgMask & PlayerInput::DF_FASTMODE)) {		
 		int32 delay = _stub->getTimeStamp() - _tstamp;
 		int32 pause = _frameDelay * TIMER_SLICE - delay;
 		if (pause > 0) {
@@ -266,7 +265,6 @@ void Cutscene::op_drawShape0Helper(const uint8 *data, int16 x, int16 y) {
 		pt.y = READ_BE_UINT16(data) + y; data += 2;
 		_gfx.drawPoint(_primitiveColor, &pt);
 	} else {
-		assert(numVertices < 0x80);
 		Point *pt = _vertices;
 		int16 ix = READ_BE_UINT16(data); data += 2;
 		int16 iy = READ_BE_UINT16(data); data += 2;
@@ -455,7 +453,6 @@ void Cutscene::op_drawShape1Helper(const uint8 *data, int16 zoom, int16 b, int16
 		_shape_prev_y16 = _shape_cur_y16;
 		_gfx.drawPoint(_primitiveColor, &pt);
 	} else {
-		assert(numVertices < 0x80);
 		Point *pt = _vertices;
 		int16 ix, iy;
 		_shape_cur_x = ix = READ_BE_UINT16(data) + b; data += 2;
@@ -526,7 +523,7 @@ void Cutscene::op_drawShape1() {
 	const uint8 *shapeDataTable      = _polPtr + READ_BE_UINT16(_polPtr + 0x0E);
 	const uint8 *verticesOffsetTable = _polPtr + READ_BE_UINT16(_polPtr + 0x0A);	
 	const uint8 *verticesDataTable   = _polPtr + READ_BE_UINT16(_polPtr + 0x12);
-
+	
 	const uint8 *shapeData = shapeDataTable + READ_BE_UINT16(shapeOffsetTable + (shapeOffset & 0x7FF) * 2);
 	uint16 primitiveCount = READ_BE_UINT16(shapeData); shapeData += 2;
 
@@ -643,7 +640,6 @@ void Cutscene::op_drawShape2Helper(const uint8 *data, int16 zoom, int16 b, int16
 		_shape_prev_y16 = _shape_cur_y16;
 		_gfx.drawPoint(_primitiveColor, &pt);			
 	} else {
-		assert(numVertices < 0x80);
 		int16 x, y, a;
 		Point tempVertices[40];
 		_shape_cur_x = b + READ_BE_UINT16(data); data += 2;
@@ -841,10 +837,15 @@ void Cutscene::op_handleKeys() {
 		}
 		_cmdPtr += 2;
 	}
+	_stub->_pi.dirMask = 0;
+	_stub->_pi.enter = false;
+	_stub->_pi.space = false;
+	_stub->_pi.shift = false;
 	int16 n = CMD_fetchWord();
 	if (n < 0) {
 		n = -n - 1;
 		if (_varKey == 0) {
+			_interrupted = true;
 			return;
 		}
 		if (_varKey != n) {
@@ -872,7 +873,6 @@ uint16 Cutscene::CMD_fetchWord() {
 void Cutscene::mainLoop(uint16 offset) {
 	_frameDelay = 5;
 	_tstamp = _stub->getTimeStamp();
-	_interrupted = false;
 
 	Color c;
 	c.r = c.g = c.b = 0;
@@ -894,7 +894,7 @@ void Cutscene::mainLoop(uint16 offset) {
 	_polPtr = _res->_pol;
 	debug(DBG_CUT, "_startOffset = %d offset = %d", _startOffset, offset);
 
-	while (!_stub->_pi.quit) {
+	while (!_stub->_pi.quit && !_interrupted) {
 		uint8 op = CMD_fetchByte();
 		debug(DBG_CUT, "Cutscene::play() opcode = 0x%X (%d)", op, (op >> 2));
 		if (op & 0x80) {
@@ -909,7 +909,6 @@ void Cutscene::mainLoop(uint16 offset) {
 		if (_stub->_pi.backspace) {
 			_stub->_pi.backspace = false;
 			_interrupted = true;
-			break;
 		}
 	}	
 }
@@ -929,6 +928,17 @@ void Cutscene::load(uint16 cutName) {
 	}
 }
 
+void Cutscene::prepare() {
+	_page0 = _vid->_frontLayer;
+	_page1 = _vid->_tempLayer;
+	_pageC = _vid->_tempLayer2;
+	_stub->_pi.dirMask = 0;
+	_stub->_pi.enter = false;
+	_stub->_pi.space = false;
+	_stub->_pi.shift = false;
+	_interrupted = false;
+}
+
 void Cutscene::startCredits() {
 	_textCurPtr = _creditsData;
 	_textBuf[0] = 0xA;
@@ -939,9 +949,7 @@ void Cutscene::startCredits() {
 	_textUnk2 = 0;
 	_creditsTextCounter = 0;
 	// XXX
-	_page0 = _vid->_frontLayer;
-	_page1 = _vid->_tempLayer;
-	_pageC = _vid->_tempLayer2;
+	prepare();
 	const uint16 *cut_seq = _creditsCutSeq;
 	while (!_stub->_pi.quit && !_interrupted) {
 		uint16 cut_id = *cut_seq++;
@@ -960,10 +968,8 @@ void Cutscene::play() {
 	if (_id != 0xFFFF) {
 		_textCurBuf = NULL;
 		debug(DBG_CUT, "Cutscene::play() _id=0x%X", _id);
-		_page0 = _vid->_frontLayer;
-		_page1 = _vid->_tempLayer;
-		_pageC = _vid->_tempLayer2;
 		_creditsSequence = false;
+		prepare();
 		uint16 cutName = _offsetsTable[_id * 2 + 0];
 		uint16 cutOff  = _offsetsTable[_id * 2 + 1];
 		if (cutName != 0xFFFF) {
@@ -973,6 +979,7 @@ void Cutscene::play() {
 				startCredits();
 			}
 		}
+		_vid->fullRefresh();
 		_id = 0xFFFF;
 	}
 }

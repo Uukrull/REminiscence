@@ -26,6 +26,7 @@
 #include "resource.h"
 #include "video.h"
 
+struct File;
 struct SystemStub;
 
 struct Game {
@@ -67,12 +68,13 @@ struct Game {
 	Video _vid;
 	SystemStub *_stub;
 	Version _ver;
+	const char *_savePath;
 	
 	const uint8 *_stringsTable;
 	const char **_textsTable;
 	uint8 _currentLevel;
 	uint8 _skillLevel;
-	uint32 _prevScore, _score;
+	uint32 _score;
 	uint8 _currentRoom;
 	uint8 _currentIcon;
 	bool _loadMap;
@@ -98,10 +100,10 @@ struct Game {
 	uint16 _deathCutsceneCounter;
 	bool _saveStateCompleted;
 	
-	Game(SystemStub *, const char *dataPath, Version ver);
+	Game(SystemStub *, const char *dataPath, const char *savePath, Version ver);
 
 	void run();
-
+	void resetGameState();
 	void mainLoop();
 	void loadLevelMap();
 	void loadLevelData();
@@ -305,7 +307,7 @@ struct Game {
 	void pge_addToInventory(LivePGE *pge1, LivePGE *pge2, LivePGE *pge3);
 	int pge_updateCollisionState(LivePGE *pge, int16 pge_dy, uint8 var8);
 	int pge_ZOrder(LivePGE *pge, int16 num, pge_ZOrderCallback compare, uint16 unk);
-	void pge_updateGroup(uint8 index, uint8 unk1, int16 unk2);
+	void pge_updateGroup(uint8 idx, uint8 unk1, int16 unk2);
 	void pge_removeFromInventory(LivePGE *pge1, LivePGE *pge2, LivePGE *pge3);
 	int pge_ZOrderByAnimY(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2);
 	int pge_ZOrderByAnimYIfType(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2);
@@ -353,10 +355,18 @@ struct Game {
 	int col_detectGunHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 arg4, int16);
 	int col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 callback1, col_Callback2 callback2, int16 argA, int16 argC);
 
-
 	void inp_update();
 
 	void snd_playSound(uint8 sfxId, uint8 softVol);
+	
+	void makeGameStateName(uint8 slot, char *buf);
+	void saveGameState(uint8 slot);
+	void loadGameState(uint8 slot);
+	void saveState(File *f);
+	void loadState(File *f);
+	
+	uint8 _stateSlot;
+	bool _validSaveState;
 };
 
-#endif
+#endif // __GAME_H__

@@ -58,7 +58,7 @@ struct Menu {
 	Menu(Resource *res, SystemStub *stub, Video *vid, Version ver);
 
 	void drawString(const char *str, int16 y, int16 x, uint8 color);
-	void drawString2(const char *t, int16 y, int16 x);
+	void drawString2(const char *str, int16 y, int16 x);
 	void loadPicture(const char *prefix);
 	void handleInfoScreen();
 	void handleSkillScreen(uint8 &new_skill);
@@ -66,4 +66,4 @@ struct Menu {
 	bool handleTitleScreen(uint8 &new_skill, uint8 &new_level);
 };
 
-#endif
+#endif // __MENU_H__

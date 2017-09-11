@@ -87,24 +87,22 @@ void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
 		break;
 	}
 	
-	while (*str) {
-		_vid->drawChar(*str, y, x);
-		++str;
-		++x;
-	}
+	drawString2(str, y, x);
 	
 	_vid->_drawCharColor1 = v1b;
 	_vid->_drawCharColor2 = v2b;
 	_vid->_drawCharColor3 = v3b;
 }
 
-void Menu::drawString2(const char *t, int16 y, int16 x) {
+void Menu::drawString2(const char *str, int16 y, int16 x) {
 	debug(DBG_MENU, "Menu::drawString2()");
-	while (*t) {
-		_vid->drawChar(*t, y, x);
-		++x;
-		++t;
-	}
+	int len = 0;
+	while (*str) {
+		_vid->drawChar(*str, y, x + len);
+		++str;
+		++len;
+	}	
+	_vid->markBlockAsDirty(x * 8, y * 8, len * 8, 8);
 }
 
 void Menu::handleInfoScreen() {
@@ -118,8 +116,8 @@ void Menu::handleInfoScreen() {
 		loadPicture("instru_e");
 		break;	
 	}
-	_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
-	_stub->updateScreen();
+	_vid->fullRefresh();
+	_vid->updateScreen();
 	do {
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
@@ -135,6 +133,7 @@ void Menu::handleSkillScreen(uint8 &new_skill) {
 	static const uint8 option_colors[3][3] = { { 2, 3, 3 }, { 3, 2, 3}, { 3, 3, 2 } };	
 	_vid->fadeOut();
 	loadPicture("menu3");
+	_vid->fullRefresh();
 	drawString(_textOptions[6], 12, 4, 3);
 	int skill_level = new_skill;
 	do {
@@ -142,8 +141,7 @@ void Menu::handleSkillScreen(uint8 &new_skill) {
 		drawString(_textOptions[8], 17, 14, option_colors[skill_level][1]);
 		drawString(_textOptions[9], 19, 14, option_colors[skill_level][2]);
 
-		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
-		_stub->updateScreen();
+		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
 
@@ -178,7 +176,7 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 	_vid->_drawCharColor3 = _charVar1;
 	_vid->_drawCharColor2 = 0xFF;
 	_vid->_drawCharColor1 = _charVar4;
-
+	_vid->fullRefresh();
 	char password[7];
 	int len = 0;
 	do {
@@ -191,8 +189,8 @@ bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 		}
 		_vid->drawChar('_', 21, len + 15);
 
-		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
-		_stub->updateScreen();
+		_vid->markBlockAsDirty(15 * 8, 21 * 8, (len + 1) * 8, 8);
+		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
 		
@@ -237,6 +235,7 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 		if (reinit_screen) {
 			_vid->fadeOut();
 			loadPicture("menu1");
+			_vid->fullRefresh();
 			_charVar3 = 1;
 			_charVar4 = 2;
 			menu_entry = 0;
@@ -248,8 +247,7 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			drawString(_textOptions[i], 14 + i * 2, 20, color);
 		}
 
-		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid->_frontLayer, 256);
-		_stub->updateScreen();
+		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
 		_stub->processEvents();
 		

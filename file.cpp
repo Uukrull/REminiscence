@@ -202,3 +202,21 @@ uint32 File::readUint32BE() {
 	uint16 lo = readUint16BE();
 	return (hi << 16) | lo;
 }
+
+void File::write(void *ptr, uint32 len) {
+	_impl->write(ptr, len);
+}
+
+void File::writeByte(uint8 b) {
+	write(&b, 1);
+}
+
+void File::writeUint16BE(uint16 n) {
+	writeByte(n >> 8);
+	writeByte(n & 0xFF);
+}
+
+void File::writeUint32BE(uint32 n) {
+	writeUint16BE(n >> 16);
+	writeUint16BE(n & 0xFFFF);
+}

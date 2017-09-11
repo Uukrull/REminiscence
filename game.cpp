@@ -17,14 +17,15 @@
  */
 
 #include <ctime>
+#include "file.h"
 #include "systemstub.h"
 #include "unpack.h"
 #include "game.h"
 
 
-Game::Game(SystemStub *stub, const char *dataPath, Version ver)
+Game::Game(SystemStub *stub, const char *dataPath, const char *savePath, Version ver)
 	: _cut(&_res, stub, &_vid, ver), _menu(&_res, stub, &_vid, ver), _mix(stub), 
-	_res(dataPath), _vid(&_res, stub), _stub(stub), _ver(ver) {
+	_res(dataPath), _vid(&_res, stub), _stub(stub), _ver(ver), _savePath(savePath) {
 	switch (_ver) {
 	case VER_FR:
 		_stringsTable = _stringsTableFR;
@@ -35,6 +36,7 @@ Game::Game(SystemStub *stub, const char *dataPath, Version ver)
 		_textsTable = _textsTableEN;
 		break;	
 	}
+	_stateSlot = 1;
 }
 
 void Game::run() {
@@ -54,10 +56,7 @@ void Game::run() {
 	_vid._drawCharColor3 = 0;
 	
 	_res.load("FB_TXT", Resource::OT_FNT);
-	
-	_cut._interrupted = false;
-//_vid.setPalette0xE(); // XXX
-//_cut.startCredits();
+
 	_cut._id = 0x40;
 	_cut.play();
 	_cut._id = 0x0D;
@@ -82,28 +81,18 @@ void Game::run() {
 			_cut._id = 0x3D;
 			_cut.play();
 		} else {
-			do {
-				_vid.setPalette0xE();
-				_vid.setPalette0xF();
-				_stub->setOverscanColor(0xE0);
-				mainLoop();
-			} while (handleContinueAbort());
-			_cut._id = 0x41;
-			_cut.play();
+			_vid.setPalette0xE();
+			_vid.setPalette0xF();
+			_stub->setOverscanColor(0xE0);
+			mainLoop();
 		}
 	}
 	
 	_mix.free();
 	_stub->destroy();
 }
-
-void Game::mainLoop() {
-	_vid._unkPalSlot1 = 0;
-	_vid._unkPalSlot2 = 0;
-	_prevScore = _score = 0;
-	_firstBankData = _bankData;
-	_lastBankData = _bankData + sizeof(_bankData);
-	loadLevelData();
+	
+void Game::resetGameState() {
 	_animBuffers._states[0] = _animBuffer0State;
 	_animBuffers._curPos[0] = 0xFF;
 	_animBuffers._states[1] = _animBuffer1State;
@@ -112,6 +101,7 @@ void Game::mainLoop() {
 	_animBuffers._curPos[2] = 0xFF;
 	_animBuffers._states[3] = _animBuffer3State;
 	_animBuffers._curPos[3] = 0xFF;
+	_currentRoom = _res._pgeInit[0].init_room;
 	_cut._deathCutsceneId = 0xFFFF;
 	_pge_opTempVar2 = 0xFFFF;
 	_deathCutsceneCounter = 0;
@@ -122,6 +112,16 @@ void Game::mainLoop() {
 	_pge_processOBJ = false;
 	_pge_opTempVar1 = 0;
 	_textToDisplay = 0xFFFF;
+}
+
+void Game::mainLoop() {
+	_vid._unkPalSlot1 = 0;
+	_vid._unkPalSlot2 = 0;
+	_score = 0;
+	_firstBankData = _bankData;
+	_lastBankData = _bankData + sizeof(_bankData);
+	loadLevelData();
+	resetGameState();
 	while (!_stub->_pi.quit) {
 		_cut.play();
 		if (_cut._id == 0x3D) {
@@ -133,7 +133,20 @@ void Game::mainLoop() {
 			if (_deathCutsceneCounter == 0) {
 				_cut._id = _cut._deathCutsceneId;
 				_cut.play();
-				break;
+				if (!handleContinueAbort()) {
+					_cut._id = 0x41;
+					_cut.play();					
+					break;
+				} else {
+					if (_validSaveState) {
+						loadGameState(0);
+					} else {
+						loadLevelData();
+						resetGameState();
+					}
+					continue;
+				}
+				
 			}
 		}		
 		memcpy(_vid._frontLayer, _vid._backLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
@@ -150,7 +163,6 @@ void Game::mainLoop() {
 			}
 		}
 		if (oldLevel != _currentLevel) {
-			_prevScore = _score;
 			changeLevel();
 			_pge_opTempVar1 = 0;
 			continue;
@@ -163,6 +175,7 @@ void Game::mainLoop() {
 				_currentRoom = _pgeLive[0].room_location;
 				loadLevelMap();
 				_loadMap = false;
+				_vid.fullRefresh();
 			}
 		}
 		prepareAnims();
@@ -170,15 +183,13 @@ void Game::mainLoop() {
 		drawCurrentInventoryItem();
 		drawLevelTexts();
 		printLevelCode();
-		drawStoryTexts();
 		if (_blinkingConradCounter != 0) {
 			--_blinkingConradCounter;
 		}
 
-		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
-		_stub->updateScreen();
+		_vid.updateScreen();
 		static uint32 tstamp = 0;
-		if (!_stub->_pi.fastMode) {
+		if (!(_stub->_pi.dbgMask & PlayerInput::DF_FASTMODE)) {
 			int32 delay = _stub->getTimeStamp() - tstamp;
 			int32 pause = 30 - delay;
 			if (pause > 0) {
@@ -186,10 +197,30 @@ void Game::mainLoop() {
 			}
 			tstamp = _stub->getTimeStamp();
 		}
-				
+		
+		drawStoryTexts();
 		if (_stub->_pi.backspace) {
 			_stub->_pi.backspace = false;
 			handleInventory();
+		}
+		if (_stub->_pi.dbgMask & PlayerInput::DF_SETLIFE) {
+			_pgeLive[0].life = 0x7FFF;
+		}
+		if (_stub->_pi.load) {
+			loadGameState(_stateSlot);
+			_stub->_pi.load = false;
+		}
+		if (_stub->_pi.save) {
+			saveGameState(_stateSlot);
+			_stub->_pi.save = false;
+		}
+		if (_stub->_pi.stateSlot != 0) {
+			int8 slot = _stateSlot + _stub->_pi.stateSlot;
+			if (slot >= 1 && slot < 100) {
+				_stateSlot = slot;
+				debug(DBG_INFO, "Current game state slot is %d", _stateSlot);
+			}
+			_stub->_pi.stateSlot = 0;
 		}
 	}
 }
@@ -210,7 +241,16 @@ void Game::showFinalScore() {
 	_vid.drawString(textBuf, (256 - strlen(textBuf) * 8) / 2, 40, 0xE5);
 	strcpy(textBuf, _menu._passwords[7][_skillLevel]);
 	_vid.drawString(textBuf, (256 - strlen(textBuf) * 8) / 2, 16, 0xE7);
-	// XXX
+	while (!_stub->_pi.quit) {
+		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
+		_stub->updateScreen();
+		_stub->processEvents();
+		if (_stub->_pi.enter) {
+			_stub->_pi.enter = false;
+			break;
+		}
+		_stub->sleep(100);
+	}
 }
 
 bool Game::handleContinueAbort() {
@@ -307,7 +347,7 @@ void Game::drawLevelTexts() {
 		uint8 txt_num = _si->init_PGE->text_num;
 		const char *str = (const char *)_res._tbn + READ_LE_UINT16(_res._tbn + txt_num * 2);
 		_vid.drawString(str, (176 - strlen(str) * 8) / 2, 26, 0xE6);
-		if (icon_num == 3) {
+		if (icon_num == 2) {
 			printSaveStateCompleted();
 		} else {
 			_saveStateCompleted = false;
@@ -338,8 +378,7 @@ void Game::drawStoryTexts() {
 				}
 				++str;
 			}
-			_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
-			_stub->updateScreen();
+			_vid.updateScreen();
 			while (!_stub->_pi.backspace && !_stub->_pi.quit) {
 				_stub->processEvents();
 				_stub->sleep(80);
@@ -621,8 +660,7 @@ void Game::drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) 
 			_vid.drawSpriteSub4(_si, _vid._frontLayer + var2, sprite_w, sprite_clipped_h, sprite_clipped_w, sprite_col_mask);
 		}
 	}
-	// XXX
-//	_stub->copyRect(sprite_x, sprite_y, sprite_clipped_w, sprite_clipped_h, _vid._frontLayer, Video::GAMESCREEN_H);
+	_vid.markBlockAsDirty(sprite_x, sprite_y, sprite_clipped_w, sprite_clipped_h);
 }
 
 void Game::decodeCharacterFrame(const uint8 *dataPtr, uint8 *dstPtr) {
@@ -761,8 +799,7 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 			_vid.drawSpriteSub4(src, _vid._frontLayer + dst_offset, sprite_w, sprite_clipped_h, sprite_clipped_w, sprite_col_mask);
 		}
 	}
-	// XXX
-//	_stub->copyRect(pos_x, pos_y, sprite_clipped_w, sprite_clipped_h, _vid._frontLayer, Video::GAMESCREEN_H);
+	_vid.markBlockAsDirty(pos_x, pos_y, sprite_clipped_w, sprite_clipped_h);
 }
 
 uint8 *Game::processMBK(uint16 MbkEntryNum) {
@@ -832,15 +869,11 @@ void Game::loadLevelMap() {
 	_currentIcon = 0xFF;
 	_vid.copyLevelMap(_currentRoom);
 	_vid.setLevelPalettes();
-	memcpy(_vid._backLayer, _vid._frontLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
 }
 
 void Game::loadLevelData() {	
 	_res.clearLevelRes();
-	
-	_curMonsterNum = 0xFFFF;
-	_curMonsterFrame = 0;
-		
+			
 	const Level *pl = &_gameLevels[_currentLevel];
 	_res.load(pl->name, Resource::OT_SPC);
 	_res.load(pl->name, Resource::OT_MBK);
@@ -855,6 +888,10 @@ void Game::loadLevelData() {
 	_res.load(pl->name2, Resource::OT_TBN);
 
 	_cut._id = pl->cutscene_id;
+
+	_curMonsterNum = 0xFFFF;
+	_curMonsterFrame = 0;
+
 	_curBankSlot = &_bankSlots[0];
 	_curBankSlot->entryNum = 0xFFFF;
 	_curBankSlot->ptr = 0;
@@ -866,7 +903,7 @@ void Game::loadLevelData() {
 
 	memset(_pge_liveTable2, 0, sizeof(_pge_liveTable2));
 	memset(_pge_liveTable1, 0, sizeof(_pge_liveTable1));
-
+	
 	_currentRoom = _res._pgeInit[0].init_room;
 	uint16 n = _res._pgeNum;
 	while (n--) {
@@ -881,6 +918,7 @@ void Game::loadLevelData() {
 		}
 	}
 	pge_resetGroups();
+	_validSaveState = false;
 }
 
 uint8 *Game::findBankData(uint16 entryNum) {
@@ -907,6 +945,7 @@ void Game::drawIcon(uint8 iconNum, int16 x, int16 y, uint8 colMask) {
 		buf[i * 2 + 1] = (col & 0x0F) >> 0;
 	}
 	_vid.drawSpriteSub1(buf, _vid._frontLayer + x + y * 256, 16, 16, 16, colMask << 4);
+	_vid.markBlockAsDirty(x, y, 16, 16);
 }
 
 uint16 Game::getRandomNumber() {
@@ -1007,8 +1046,7 @@ void Game::handleInventory() {
 				_vid.drawString(textBuf, (114 - strlen(textBuf) * 8) / 2 + 72, 166, 0xE5);
 			}
 		
-			_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
-			_stub->updateScreen();
+			_vid.updateScreen();
 			_stub->sleep(80);
 			_stub->processEvents();
 
@@ -1049,6 +1087,7 @@ void Game::handleInventory() {
 				display_score = !display_score;
 			}
 		}
+		_vid.fullRefresh();
 		_stub->_pi.backspace = false;
 		if (selected_pge) {
 			pge_setCurrentInventoryObject(selected_pge);
@@ -1081,6 +1120,143 @@ void Game::snd_playSound(uint8 sfxId, uint8 softVol) {
 			_mix.play(&mc, 6000, 64 >> softVol);
 		}
 	}
+}
+
+void Game::makeGameStateName(uint8 slot, char *buf) {
+	sprintf(buf, "rs%d.s%02d", _currentLevel + 1, slot);
+}
+
+void Game::saveGameState(uint8 slot) {
+	char stateFile[20];
+	makeGameStateName(slot, stateFile);
+	File f(true);
+	if (!f.open(stateFile, _savePath, "wb")) {
+		warning("Unable to save state file '%s'", stateFile);
+	} else {
+		// header
+		f.writeUint32BE('FBSV');
+		f.writeUint16BE(0);
+		char hdrdesc[32];
+		memset(hdrdesc, 0, sizeof(hdrdesc));
+		sprintf(hdrdesc, "level%d", _currentLevel + 1);
+		f.write(hdrdesc, sizeof(hdrdesc));
+		// contents
+		saveState(&f);
+		if (f.ioErr()) {
+			warning("I/O error when saving game state");
+		} else {
+			debug(DBG_INFO, "Saved state to slot %d", slot);
+		}
+	}
+}
+
+void Game::loadGameState(uint8 slot) {
+	char stateFile[20];
+	makeGameStateName(slot, stateFile);
+	File f(true);
+	if (!f.open(stateFile, _savePath, "rb")) {
+		warning("Unable to open state file '%s'", stateFile);
+	} else {
+		uint32 id = f.readUint32BE();
+		if (id != 'FBSV') {
+			warning("Bad save state format");
+		} else {
+			uint16 ver = f.readUint16BE();
+			if (ver != 0) {
+				warning("Invalid save state version");				
+			} else {
+				char hdrdesc[32];
+				f.read(hdrdesc, sizeof(hdrdesc));
+				// contents
+				loadState(&f);
+				if (f.ioErr()) {
+					warning("I/O error when loading game state");
+				} else {
+					debug(DBG_INFO, "Loaded state from slot %d", slot);
+				}
+			}
+		}
+	}
+}
+
+void Game::saveState(File *f) {
+	f->writeUint32BE(_col_slots2Cur - &_col_slots2[0]);
+	f->writeUint32BE(_col_slots2Next - &_col_slots2[0]);
+	f->writeUint32BE(_score);
+	for (int i = 0; i < _res._pgeNum; ++i) {
+		LivePGE *pge = &_pgeLive[i];
+		f->writeUint16BE(pge->obj_type);
+		f->writeUint16BE(pge->pos_x);
+		f->writeUint16BE(pge->pos_y);
+		f->writeByte(pge->anim_seq);
+		f->writeByte(pge->room_location);
+		f->writeUint16BE(pge->life);
+		f->writeUint16BE(pge->counter_value);
+		f->writeByte(pge->collision_slot);
+		f->writeByte(pge->next_inventory_PGE);
+		f->writeByte(pge->current_inventory_PGE);
+		f->writeByte(pge->unkF);
+		f->writeUint16BE(pge->anim_number);
+		f->writeByte(pge->flags);
+		f->writeByte(pge->index);
+		f->writeUint16BE(pge->first_obj_number);
+		f->writeUint32BE(pge->next_PGE_in_room - &_pgeLive[0]);
+		f->writeUint32BE(pge->init_PGE - &_res._pgeInit[0]);		
+	}
+	f->write(&_res._ctData[0x100], 0x1C00);
+	for (CollisionSlot2 *cs2 = &_col_slots2[0]; cs2 < _col_slots2Cur; ++cs2) {
+		f->writeUint32BE(cs2->next_slot - &_col_slots2[0]);
+		f->writeUint32BE(cs2->unk2 - &_res._ctData[0x100]);
+		f->writeByte(cs2->data_size);
+		f->write(cs2->data_buf, 0x10);
+	}
+}
+
+void Game::loadState(File *f) {
+	uint16 i;
+	memset(_pge_liveTable2, 0, sizeof(_pge_liveTable2));
+	memset(_pge_liveTable1, 0, sizeof(_pge_liveTable1));
+	_col_slots2Cur = &_col_slots2[0] + f->readUint32BE();
+	_col_slots2Next = &_col_slots2[0] + f->readUint32BE();
+	_score = f->readUint32BE();
+	for (i = 0; i < _res._pgeNum; ++i) {
+		LivePGE *pge = &_pgeLive[i];
+		pge->obj_type = f->readUint16BE();
+		pge->pos_x = f->readUint16BE();
+		pge->pos_y = f->readUint16BE();
+		pge->anim_seq = f->readByte();
+		pge->room_location = f->readByte();
+		pge->life = f->readUint16BE();
+		pge->counter_value = f->readUint16BE();
+		pge->collision_slot = f->readByte();
+		pge->next_inventory_PGE = f->readByte();
+		pge->current_inventory_PGE = f->readByte();
+		pge->unkF = f->readByte();
+		pge->anim_number = f->readUint16BE();
+		pge->flags = f->readByte();
+		pge->index = f->readByte();
+		pge->first_obj_number = f->readUint16BE();
+		pge->next_PGE_in_room = &_pgeLive[0] + f->readUint32BE();
+		pge->init_PGE = &_res._pgeInit[0] + f->readUint32BE();
+	}
+	f->read(&_res._ctData[0x100], 0x1C00);
+	for (CollisionSlot2 *cs2 = &_col_slots2[0]; cs2 < _col_slots2Cur; ++cs2) {
+		cs2->next_slot = &_col_slots2[0] + f->readUint32BE();
+		cs2->unk2 = &_res._ctData[0x100] + f->readUint32BE();
+		cs2->data_size = f->readByte();
+		f->read(cs2->data_buf, 0x10);
+	}
+	for (i = 0; i < _res._pgeNum; ++i) {
+		if (_res._pgeInit[i].skill <= _skillLevel) {
+			LivePGE *pge = &_pgeLive[i];
+			if (pge->flags & 4) {
+				_pge_liveTable2[pge->index] = pge;
+			}
+			pge->next_PGE_in_room = _pge_liveTable1[pge->room_location];
+			_pge_liveTable1[pge->room_location] = pge;
+		}
+	}
+	resetGameState();
 }
 
 void AnimBuffers::addState(uint8 stateNum, int16 x, int16 y, const uint8 *dataPtr, LivePGE *pge) {

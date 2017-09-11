@@ -27,7 +27,9 @@ struct SystemStub;
 struct Video {
 	enum {
 		GAMESCREEN_W = 256,
-		GAMESCREEN_H = 224
+		GAMESCREEN_H = 224,
+		SCREENBLOCK_W = 8,
+		SCREENBLOCK_H = 8
 	};
 
 	static const uint8 _conradPal1[];
@@ -46,11 +48,16 @@ struct Video {
 	uint8 _mapPalSlot1, _mapPalSlot2, _mapPalSlot3, _mapPalSlot4;
 	uint8 _drawCharColor1;
 	uint8 _drawCharColor2;
-	uint8 _drawCharColor3;	
+	uint8 _drawCharColor3;
+	uint8 *_screenBlocks;
+	bool _fullRefresh;
 	
 	Video(Resource *res, SystemStub *stub);
 	~Video();
 	
+	void markBlockAsDirty(int16 x, int16 y, uint16 w, uint16 h);
+	void updateScreen();
+	void fullRefresh();
 	void fadeOut();
 	void setPaletteSlotBE(int palSlot, int palNum);
 	void setPaletteSlotLE(int palSlot, const uint8 *palData);
@@ -69,4 +76,4 @@ struct Video {
 	const char *drawString(const char *str, int16 x, int16 y, uint8 col);
 };
 
-#endif
+#endif // __VIDEO_H__

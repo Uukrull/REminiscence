@@ -29,7 +29,7 @@ typedef signed long int32;
 #if defined SYS_LITTLE_ENDIAN
 
 inline uint16 READ_LE_UINT16(const void *ptr) {
-#if defined SYS_NEED_ALIGNEMENT
+#if defined SYS_NEED_ALIGNMENT
 	uint16 r;
 	memcpy(&r, ptr, 2);
 	return r;
@@ -39,7 +39,7 @@ inline uint16 READ_LE_UINT16(const void *ptr) {
 }
 
 inline uint32 READ_LE_UINT32(const void *ptr) {
-#if defined SYS_NEED_ALIGNEMENT
+#if defined SYS_NEED_ALIGNMENT
 	uint32 r;
 	memcpy(&r, ptr, 4);
 	return r;
@@ -71,7 +71,7 @@ inline uint32 READ_LE_UINT32(const void *ptr) {
 }
 
 inline uint16 READ_BE_UINT16(const void *ptr) {
-#if defined SYS_NEED_ALIGNEMENT
+#if defined SYS_NEED_ALIGNMENT
 	uint16 r;
 	memcpy(&r, ptr, 2);
 	return r;
@@ -81,7 +81,7 @@ inline uint16 READ_BE_UINT16(const void *ptr) {
 }
 
 inline uint32 READ_BE_UINT32(const void *ptr) {
-#if defined SYS_NEED_ALIGNEMENT
+#if defined SYS_NEED_ALIGNMENT
 	uint32 r;
 	memcpy(&r, ptr, 4);
 	return r;
@@ -96,4 +96,4 @@ inline uint32 READ_BE_UINT32(const void *ptr) {
 
 #endif
 
-#endif
+#endif // __SYS_H__

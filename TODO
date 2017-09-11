@@ -1,8 +1,7 @@
 
 TODO
-  - save/load state
-  - smarter rendering code (ie. dirty blocks...) (partly done)
   - better localisation code
   - enum Piege flags
   - music (maybe use amiga MODs instead of MIDI)
   - code cleanup
+  - input recording/playing

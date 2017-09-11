@@ -16,43 +16,29 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#ifndef __MIXER_H__
-#define __MIXER_H__
-
+#ifndef __SCALER_H__
+#define __SCALER_H__
+ 
 #include "intern.h"
 
-struct MixerChunk {
-	const uint8 *data;
-	uint16 len;
+typedef void (*ScaleProc)(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+
+enum {
+	NUM_SCALERS = 5,
 };
 
-struct MixerChannel {
-	uint8 active;
-	uint8 volume;
-	MixerChunk chunk;
-	uint32 chunkPos;
-	uint32 chunkInc;
+struct Scaler {
+	const char *name;
+	ScaleProc proc;
+	uint8 factor;
 };
 
-struct SystemStub;
+extern const Scaler _scalers[];
 
-struct Mixer {
-	enum {
-		NUM_CHANNELS = 4
-	};
+void point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+void point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+void point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+void scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
+void scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
 
-	void *_mutex;
-	SystemStub *_stub;
-	MixerChannel _channels[NUM_CHANNELS];
-
-	Mixer(SystemStub *stub);
-	void init();
-	void free();
-	void play(const MixerChunk *mc, uint16 freq, uint8 volume);
-	void stopAll();
-	void mix(int8 *buf, int len);
-
-	static void mixCallback(void *param, uint8 *buf, int len);
-};
-
-#endif // __MIXER_H__
+#endif // __SCALER_H__

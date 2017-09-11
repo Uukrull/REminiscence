@@ -27,6 +27,9 @@ Video::Video(Resource *res, SystemStub *stub)
 	_backLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 	_tempLayer = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 	_tempLayer2 = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
+	_screenBlocks = (uint8 *)malloc((GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
+	_fullRefresh = true;
+	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));	
 }
 
 Video::~Video() {
@@ -34,7 +37,65 @@ Video::~Video() {
 	free(_backLayer);
 	free(_tempLayer);
 	free(_tempLayer2);
+	free(_screenBlocks);
 }
+
+void Video::markBlockAsDirty(int16 x, int16 y, uint16 w, uint16 h) {
+	debug(DBG_VIDEO, "Video::markBlockAsDirty(%d, %d, %d, %d)", x, y, w, h);
+	assert(x >= 0 && x < GAMESCREEN_W && y >= 0 && y < GAMESCREEN_H);
+	uint8 bx1 = x / SCREENBLOCK_W;
+	uint8 by1 = y / SCREENBLOCK_H;
+	uint8 bx2 = (x + w - 1) / SCREENBLOCK_W;
+	uint8 by2 = (y + h - 1) / SCREENBLOCK_H;
+	for (; by1 <= by2; ++by1) {
+		for (uint8 i = bx1; i <= bx2; ++i) {
+			_screenBlocks[by1 * (GAMESCREEN_W / SCREENBLOCK_W) + i] = 2;
+		}
+	}
+}
+
+void Video::updateScreen() {
+	debug(DBG_VIDEO, "Video::updateScreen()");
+//	_fullRefresh = true;
+	if (_fullRefresh) {
+		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _frontLayer, 256);
+		_stub->updateScreen();
+		_fullRefresh = false;
+	} else {
+		int i, j;
+		int count = 0;
+		uint8 *p = _screenBlocks;
+		for (j = 0; j < GAMESCREEN_H / SCREENBLOCK_H; ++j) {
+			uint16 nh = 0;
+			for (i = 0; i < GAMESCREEN_W / SCREENBLOCK_W; ++i) {
+				if (p[i] != 0) {
+					--p[i];
+					++nh;
+				} else if (nh != 0) {
+					int16 x = (i - nh) * SCREENBLOCK_W;
+					_stub->copyRect(x, j * SCREENBLOCK_H, nh * SCREENBLOCK_W, SCREENBLOCK_H, _frontLayer, 256);
+					nh = 0;
+					++count;
+				}
+			}
+			if (nh != 0) {
+				int16 x = (i - nh) * SCREENBLOCK_W;
+				_stub->copyRect(x, j * SCREENBLOCK_H, nh * SCREENBLOCK_W, SCREENBLOCK_H, _frontLayer, 256);
+				++count;
+			}			
+			p += GAMESCREEN_W / SCREENBLOCK_W;
+		}
+		if (count != 0) {
+			_stub->updateScreen();			
+		}
+	}
+}
+
+void Video::fullRefresh() {
+	debug(DBG_VIDEO, "Video::fullRefresh()");
+	_fullRefresh = true;
+	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));	
+}	
 
 void Video::fadeOut() {
 	debug(DBG_VIDEO, "Video::fadeOut()");
@@ -47,8 +108,8 @@ void Video::fadeOut() {
 			col.b >>= 1;
 			_stub->setPaletteEntry(c, &col);
 		}
-		_stub->copyRect(0, 0, GAMESCREEN_W, GAMESCREEN_H, _frontLayer, GAMESCREEN_W);
-		_stub->updateScreen();
+		fullRefresh();
+		updateScreen();
 		_stub->sleep(120);
 	}
 }
@@ -138,6 +199,7 @@ void Video::copyLevelMap(uint16 room) {
 			}
 		}
 	}
+	memcpy(_backLayer, _frontLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
 }
 
 void Video::decodeLevelMap(uint16 sz, const uint8 *src, uint8 *dst) {
@@ -302,6 +364,7 @@ void Video::drawChar(char c, int16 y, int16 x) {
 
 const char *Video::drawString(const char *str, int16 x, int16 y, uint8 col) {
 	debug(DBG_VIDEO, "Video::drawString('%s', %d, %d, 0x%X)", str, x, y, col);
+	int len = 0;
 	int offset = y * 256 + x;
 	uint8 *dst = _frontLayer + offset;
 	while (1) {
@@ -328,6 +391,8 @@ const char *Video::drawString(const char *str, int16 x, int16 y, uint8 col) {
 			dst_char += 256 - 8;
 		}
 		dst += 8; // character width
+		++len;
 	}
+	markBlockAsDirty(x, y, len * 8, 8);
 	return str - 1;
 }

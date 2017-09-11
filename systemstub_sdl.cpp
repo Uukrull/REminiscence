@@ -17,24 +17,16 @@
  */
 
 #include <SDL.h>
+#include "scaler.h"
 #include "systemstub.h"
 
 
 struct SystemStub_SDL : SystemStub {
-	typedef void (SystemStub_SDL::*ScaleProc)(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-
 	enum {
 		MAX_BLIT_RECTS = 200,
-		SOUND_SAMPLE_RATE = 11025
-	};
-
-	struct Scaler {
-		const char *name;
-		ScaleProc proc;
-		uint8 factor;
-	};
-
-	static const Scaler _scalers[];
+		SOUND_SAMPLE_RATE = 11025,
+		JOYSTICK_COMMIT_VALUE = 3200
+	};	
 
 	uint8 *_offscreen;
 	SDL_Surface *_screen;
@@ -43,6 +35,7 @@ struct SystemStub_SDL : SystemStub {
 	uint8 _scaler;
 	uint16 _pal[256];
 	uint16 _screenW, _screenH;
+	SDL_Joystick *_joystick;
 	SDL_Rect _blitRects[MAX_BLIT_RECTS];
 	uint16 _numBlitRects;
 	
@@ -69,20 +62,7 @@ struct SystemStub_SDL : SystemStub {
 	void prepareGfxMode();
 	void cleanupGfxMode();
 	void switchGfxMode(bool fullscreen, uint8 scaler);
-
-	void point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-	void point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-	void point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-	void scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-	void scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h);
-};
-
-const SystemStub_SDL::Scaler SystemStub_SDL::_scalers[] = {
-	{ "point1x", &SystemStub_SDL::point1x, 1 },
-	{ "point2x", &SystemStub_SDL::point2x, 2 },
-	{ "scale2x", &SystemStub_SDL::scale2x, 2 },
-	{ "point3x", &SystemStub_SDL::point3x, 3 },
-	{ "scale3x", &SystemStub_SDL::scale3x, 3 }
+	void drawRect(SDL_Rect *rect, uint8 color, uint16 *dst, uint16 dstPitch);
 };
 
 SystemStub *SystemStub_SDL_create() {
@@ -90,7 +70,7 @@ SystemStub *SystemStub_SDL_create() {
 }
 
 void SystemStub_SDL::init(const char *title, uint16 w, uint16 h) {
-	SDL_Init(SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK);
 	SDL_ShowCursor(SDL_DISABLE);
 	SDL_WM_SetCaption(title, NULL);
 	memset(&_pi, 0, sizeof(_pi));
@@ -104,13 +84,20 @@ void SystemStub_SDL::init(const char *title, uint16 w, uint16 h) {
 	}
 	memset(_offscreen, 0, size_offscreen);
 	_fullscreen = false;
-	_scaler = 0;
+	_scaler = 1;
 	memset(_pal, 0, sizeof(_pal));
 	prepareGfxMode();
+	_joystick = NULL;
+	if (SDL_NumJoysticks() > 0) {
+		_joystick = SDL_JoystickOpen(0);
+	}
 }
 
 void SystemStub_SDL::destroy() {
 	cleanupGfxMode();
+	if (SDL_JoystickOpened(0)) {
+		SDL_JoystickClose(_joystick);
+	}
 	SDL_Quit();
 }
 
@@ -147,6 +134,7 @@ void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint
 		warning("SystemStub_SDL::copyRect() Too many blit rects, you may experience graphical glitches");
 	} else {
 		assert(x + w <= _screenW && y + h <= _screenH);
+
 		SDL_Rect *br = &_blitRects[_numBlitRects];
 		br->x = x;
 		br->y = y;
@@ -163,22 +151,27 @@ void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint
 			p += _screenW;
 			buf += pitch;
 		}
+		if (_pi.dbgMask & PlayerInput::DF_DBLOCKS) {
+			drawRect(br, 0xE7, (uint16 *)_offscreen + _screenW + 1, _screenW * 2);
+		}
 	}
 }
 
 void SystemStub_SDL::updateScreen() {
 	for (int i = 0; i < _numBlitRects; ++i) {
 		SDL_Rect *br = &_blitRects[i];
+		int16 dx = br->x * _scalers[_scaler].factor;
+		int16 dy = br->y * _scalers[_scaler].factor;
 		SDL_LockSurface(_sclscreen);
-		uint8 *dst = (uint8 *)_sclscreen->pixels + _sclscreen->pitch * br->y + br->x;
+		uint16 *dst = (uint16 *)_sclscreen->pixels + dy * _sclscreen->pitch / 2 + dx;
 		const uint16 *src = (uint16 *)_offscreen + (br->y + 1) * _screenW + (br->x + 1);
-		(this->*_scalers[_scaler].proc)((uint16 *)dst, _sclscreen->pitch, src, _screenW, br->w, br->h);
-		SDL_UnlockSurface(_sclscreen);		
-		SDL_BlitSurface(_sclscreen, NULL, _screen, NULL);
+		(*_scalers[_scaler].proc)(dst, _sclscreen->pitch, src, _screenW, br->w, br->h);
+		SDL_UnlockSurface(_sclscreen);
 		br->x *= _scalers[_scaler].factor;
 		br->y *= _scalers[_scaler].factor;
 		br->w *= _scalers[_scaler].factor;
 		br->h *= _scalers[_scaler].factor;
+		SDL_BlitSurface(_sclscreen, br, _screen, br);
 	}	
 	SDL_UpdateRects(_screen, _numBlitRects, _blitRects);
 	_numBlitRects = 0;
@@ -191,6 +184,71 @@ void SystemStub_SDL::processEvents() {
 		case SDL_QUIT:
 			_pi.quit = true;
 			break;
+		case SDL_JOYAXISMOTION:
+			switch (ev.jaxis.axis) {
+			case 0:
+				if (ev.jaxis.value > JOYSTICK_COMMIT_VALUE) {
+					_pi.dirMask |= PlayerInput::DIR_RIGHT;
+					if (_pi.dirMask & PlayerInput::DIR_LEFT) {
+						_pi.dirMask &= ~PlayerInput::DIR_LEFT;
+					}
+				} else if (ev.jaxis.value < -JOYSTICK_COMMIT_VALUE) {
+					_pi.dirMask |= PlayerInput::DIR_LEFT;
+					if (_pi.dirMask & PlayerInput::DIR_RIGHT) {
+						_pi.dirMask &= ~PlayerInput::DIR_RIGHT;
+					}
+				} else {
+					_pi.dirMask &= ~(PlayerInput::DIR_RIGHT | PlayerInput::DIR_LEFT);
+				}
+				break;
+			case 1:
+				if (ev.jaxis.value > JOYSTICK_COMMIT_VALUE) {
+					_pi.dirMask |= PlayerInput::DIR_DOWN;
+					if (_pi.dirMask & PlayerInput::DIR_UP) {
+						_pi.dirMask &= ~PlayerInput::DIR_UP;
+					}
+				} else if (ev.jaxis.value < -JOYSTICK_COMMIT_VALUE) {
+					_pi.dirMask |= PlayerInput::DIR_UP;
+					if (_pi.dirMask & PlayerInput::DIR_DOWN) {
+						_pi.dirMask &= ~PlayerInput::DIR_DOWN;
+					}
+				} else {
+					_pi.dirMask = 0;
+				}
+				break;
+			}
+            break;
+		case SDL_JOYBUTTONDOWN:
+			switch (ev.jbutton.button) {
+			case 0:
+				_pi.space = true;
+				break;
+			case 1:
+			    _pi.shift = true;
+			    break;
+			case 2:
+			    _pi.enter = true;
+			    break;
+			case 3:
+			    _pi.backspace = true;
+			    break;
+			}
+			break;
+		case SDL_JOYBUTTONUP:
+			switch (ev.jbutton.button) {
+			case 0:
+				_pi.space = false;
+				break;
+			case 1:
+			    _pi.shift = false;
+			    break;
+			case 2:
+			    _pi.enter = false;
+			    break;
+			case 3:
+			    _pi.backspace = false;
+			    break;
+			}
 		case SDL_KEYUP:
 			switch (ev.key.keysym.sym) {
 			case SDLK_LEFT:
@@ -225,7 +283,7 @@ void SystemStub_SDL::processEvents() {
 					switchGfxMode(!_fullscreen, _scaler);
 				} else if (ev.key.keysym.sym == SDLK_KP_PLUS) {
 					uint8 s = _scaler + 1;
-					if (s < ARRAYSIZE(_scalers)) {
+					if (s < NUM_SCALERS) {
 						switchGfxMode(_fullscreen, s);
 					}
 				} else if (ev.key.keysym.sym == SDLK_KP_MINUS) {
@@ -237,7 +295,19 @@ void SystemStub_SDL::processEvents() {
 				break;
 			} else if (ev.key.keysym.mod & KMOD_CTRL) {
 				if (ev.key.keysym.sym == SDLK_f) {
-					_pi.fastMode = !_pi.fastMode;
+					_pi.dbgMask ^= PlayerInput::DF_FASTMODE;
+				} else if (ev.key.keysym.sym == SDLK_b) {
+					_pi.dbgMask ^= PlayerInput::DF_DBLOCKS;
+				} else if (ev.key.keysym.sym == SDLK_i) {
+					_pi.dbgMask ^= PlayerInput::DF_SETLIFE;
+				} else if (ev.key.keysym.sym == SDLK_s) {
+					_pi.save = true;
+				} else if (ev.key.keysym.sym == SDLK_l) {
+					_pi.load = true;
+				} else if (ev.key.keysym.sym == SDLK_KP_PLUS) {
+					_pi.stateSlot = 1;
+				} else if (ev.key.keysym.sym == SDLK_KP_MINUS) {
+					_pi.stateSlot = -1;
 				}
 			}
 			_pi.lastChar = ev.key.keysym.sym;
@@ -285,7 +355,6 @@ void SystemStub_SDL::sleep(uint32 duration) {
 uint32 SystemStub_SDL::getTimeStamp() {
 	return SDL_GetTicks();
 }
-
 
 void SystemStub_SDL::startAudio(AudioCallback callback, void *param) {
 	SDL_AudioSpec desired;
@@ -342,8 +411,11 @@ void SystemStub_SDL::prepareGfxMode() {
 	if (!_sclscreen) {
 		error("SystemStub_SDL::prepareGfxMode() unable to allocate _sclscreen buffer");
 	}
-	memset(_blitRects, 0, sizeof(_blitRects));
-	_numBlitRects = 0;
+	_numBlitRects = 1;
+	_blitRects[0].x = 0;
+	_blitRects[0].y = 0;
+	_blitRects[0].w = _screenW;
+	_blitRects[0].h = _screenH;	
 }
 
 void SystemStub_SDL::cleanupGfxMode() {
@@ -371,116 +443,17 @@ void SystemStub_SDL::switchGfxMode(bool fullscreen, uint8 scaler) {
 	SDL_FreeSurface(prev_sclscreen);
 }
 
-void SystemStub_SDL::point1x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
+void SystemStub_SDL::drawRect(SDL_Rect *rect, uint8 color, uint16 *dst, uint16 dstPitch) {
 	dstPitch >>= 1;
-	while (h--) {
-		memcpy(dst, src, w * 2);
-		dst += dstPitch;
-		src += srcPitch;
+	int x1 = rect->x;
+	int y1 = rect->y;
+	int x2 = rect->x + rect->w - 1;
+	int y2 = rect->y + rect->h - 1;
+	assert(x1 >= 0 && x2 < _screenW && y1 >= 0 && y2 < _screenH);
+	for (int i = x1; i <= x2; ++i) {
+		*(dst + y1 * dstPitch + i) = *(dst + y2 * dstPitch + i) = _pal[color];
 	}
-}
-
-void SystemStub_SDL::point2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
-	dstPitch >>= 1;
-	while (h--) {
-		uint16 *p = dst;
-		for (int i = 0; i < w; ++i, p += 2) {
-			uint16 c = *(src + i);
-			*(p) = c;
-			*(p + 1) = c;
-			*(p + dstPitch) = c;
-			*(p + dstPitch + 1) = c;
-		}
-		dst += dstPitch * 2;
-		src += srcPitch;
-	}
-}
-
-void SystemStub_SDL::point3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {	
-	dstPitch >>= 1;
-	while (h--) {
-		uint16 *p = dst;
-		for (int i = 0; i < w; ++i, p += 3) {
-			uint16 c = *(src + i);
-			*(p) = c;
-			*(p + 1) = c;
-			*(p + 2) = c;
-			*(p + dstPitch) = c;
-			*(p + dstPitch + 1) = c;
-			*(p + dstPitch + 2) = c;
-			*(p + 2 * dstPitch) = c;
-			*(p + 2 * dstPitch + 1) = c;
-			*(p + 2 * dstPitch + 2) = c;
-		}
-		dst += dstPitch * 3;
-		src += srcPitch;
-	}
-}
-
-void SystemStub_SDL::scale2x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
-	dstPitch >>= 1;
-	while (h--) {
-		uint16 *p = dst;
-		for (int i = 0; i < w; ++i, p += 2) {
-			uint16 B = *(src + i - srcPitch);
-			uint16 D = *(src + i - 1);
-			uint16 E = *(src + i);
-			uint16 F = *(src + i + 1);
-			uint16 H = *(src + i + srcPitch);
-			if (B != H && D != F) {
-				*(p) = D == B ? D : E;
-				*(p + 1) = B == F ? F : E;
-				*(p + dstPitch) = D == H ? D : E;
-				*(p + dstPitch + 1) = H == F ? F : E;
-			} else {
-				*(p) = E;
-				*(p + 1) = E;
-				*(p + dstPitch) = E;
-				*(p + dstPitch + 1) = E;
-			}
-		}
-		dst += dstPitch * 2;
-		src += srcPitch;
-	}
-}
-
-void SystemStub_SDL::scale3x(uint16 *dst, uint16 dstPitch, const uint16 *src, uint16 srcPitch, uint16 w, uint16 h) {
-	dstPitch >>= 1;
-	while (h--) {
-		uint16 *p = dst;
-		for (int i = 0; i < w; ++i, p += 3) {
-			uint16 A = *(src + i - srcPitch - 1);
-			uint16 B = *(src + i - srcPitch);
-			uint16 C = *(src + i - srcPitch + 1);
-			uint16 D = *(src + i - 1);
-			uint16 E = *(src + i);
-			uint16 F = *(src + i + 1);
-			uint16 G = *(src + i + srcPitch - 1);
-			uint16 H = *(src + i + srcPitch);
-			uint16 I = *(src + i + srcPitch + 1);
-			if (B != H && D != F) {
-				*(p) = D == B ? D : E;
-				*(p + 1) = (D == B && E != C) || (B == F && E != A) ? B : E;
-				*(p + 2) = B == F ? F : E;
-				*(p + dstPitch) = (D == B && E != G) || (D == B && E != A) ? D : E;
-				*(p + dstPitch + 1) = E;
-				*(p + dstPitch + 2) = (B == F && E != I) || (H == F && E != C) ? F : E;
-				*(p + 2 * dstPitch) = D == H ? D : E;
-				*(p + 2 * dstPitch + 1) = (D == H && E != I) || (H == F && E != G) ? H : E;
-				*(p + 2 * dstPitch + 2) = H == F ? F : E;
-			} else {
-				*(p) = E;
-				*(p + 1) = E;
-				*(p + 2) = E;
-				*(p + dstPitch) = E;
-				*(p + dstPitch + 1) = E;
-				*(p + dstPitch + 2) = E;
-				*(p + 2 * dstPitch) = E;
-				*(p + 2 * dstPitch + 1) = E;
-				*(p + 2 * dstPitch + 2) = E;
-			}
-		}
-		dst += dstPitch * 3;
-		src += srcPitch;
+	for (int j = y1; j <= y2; ++j) {
+		*(dst + j * dstPitch + x1) = *(dst + j * dstPitch + x2) = _pal[color];
 	}
 }

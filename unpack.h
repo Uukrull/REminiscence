@@ -36,4 +36,4 @@ struct Unpack {
 	bool rcr(bool CF);
 };
 
-#endif
+#endif // __UNPACK_H__

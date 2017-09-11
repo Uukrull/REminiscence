@@ -40,6 +40,10 @@ struct File {
 	uint32 readUint32LE();
 	uint16 readUint16BE();
 	uint32 readUint32BE();
+	void write(void *ptr, uint32 size);
+	void writeByte(uint8 b);
+	void writeUint16BE(uint16 n);
+	void writeUint32BE(uint32 n);
 };
 
-#endif
+#endif // __FILE_H__

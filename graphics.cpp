@@ -208,7 +208,7 @@ void Graphics::fillArea(uint8 color, bool hasAlpha) {
 	uint8 *dst = _layer + (*pts++) * 256 + 12808;
 	int16 x1 = *pts++;
 	if (x1 >= 0) {
-		if (hasAlpha) {
+		if (hasAlpha && color > 0xC7) {
 			do {
 				int16 x2 = *pts++;
 				if (x2 < 240 && x2 >= x1) {
@@ -591,7 +591,7 @@ gfx_startLine:
 				do {
 					a = b;
 					if (a < 0) {
-							a = 0;
+						a = 0;
 					}
 					x = f >> 16;
 					if (x > xmax) {

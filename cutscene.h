@@ -128,8 +128,9 @@ struct Cutscene {
 	uint16 CMD_fetchWord();
 	void mainLoop(uint16 offset);
 	void load(uint16 cutName);
+	void prepare();
 	void startCredits();
 	void play();
 };
 
-#endif
+#endif // __CUTSCENE_H__

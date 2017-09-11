@@ -60,7 +60,7 @@ void Resource::load_FIB(const char *fileName) {
 		0xDE, 0xEB, 0xF3, 0xF8, 0xFB, 0xFD, 0xFE, 0xFF,
 		0x00, 0x01, 0x02, 0x03, 0x05, 0x08, 0x0D, 0x15
 	};
-	sprintf(_entryName, "%s.fib", fileName);
+	sprintf(_entryName, "%s.FIB", fileName);
 	File f;
 	if (f.open(_entryName, _dataPath, "rb")) {
 		_numSfx = f.readUint16LE();
@@ -109,7 +109,7 @@ void Resource::load_FIB(const char *fileName) {
 
 void Resource::load_MAP_menu(const char *fileName, uint8 *dstPtr) {
 	debug(DBG_RES, "Resource::load_MAP_menu('%s')", fileName);
-	sprintf(_entryName, "%s.map", fileName);
+	sprintf(_entryName, "%s.MAP", fileName);
 	File f;
 	if (f.open(_entryName, _dataPath, "rb")) {
 		assert(f.size() == 0x3800 * 4);
@@ -124,7 +124,7 @@ void Resource::load_MAP_menu(const char *fileName, uint8 *dstPtr) {
 
 void Resource::load_PAL_menu(const char *fileName, uint8 *dstPtr) {
 	debug(DBG_RES, "Resource::load_PAL_menu('%s')", fileName);
-	sprintf(_entryName, "%s.pal", fileName);
+	sprintf(_entryName, "%s.PAL", fileName);
 	File f;
 	if (f.open(_entryName, _dataPath, "rb")) {
 		assert(f.size() == 768);
@@ -139,7 +139,7 @@ void Resource::load_PAL_menu(const char *fileName, uint8 *dstPtr) {
 
 void Resource::load_SPR_OFF(const char *fileName, uint8 *sprData) {
 	debug(DBG_RES, "Resource::load_SPR_OFF('%s')", fileName);
-	sprintf(_entryName, "%s.off", fileName);
+	sprintf(_entryName, "%s.OFF", fileName);
 	File f;
 	if (f.open(_entryName, _dataPath, "rb")) {
 		int len = f.size();
@@ -169,7 +169,7 @@ void Resource::load_SPR_OFF(const char *fileName, uint8 *sprData) {
 void Resource::load_CINE(const char *fileName) {
 	debug(DBG_RES, "Resource::load_CINE('%s')", fileName);
 	if (_cine_off == 0) {
-		sprintf(_entryName, "%s.bin", fileName);
+		sprintf(_entryName, "%s.BIN", fileName);
 		File f;
 		if (f.open(_entryName, _dataPath, "rb")) {
 			int len = f.size();
@@ -184,7 +184,7 @@ void Resource::load_CINE(const char *fileName) {
 		}
 	}
 	if (_cine_txt == 0) {
-		sprintf(_entryName, "%s.txt", fileName);
+		sprintf(_entryName, "%s.TXT", fileName);
 		File f;
 		if (f.open(_entryName, _dataPath, "rb")) {
 			int len = f.size();
@@ -206,82 +206,82 @@ void Resource::load(const char *objName, int objType) {
 	switch (objType) {
 	case OT_MBK:
 		debug(DBG_RES, "chargement bank (mbk)");
-		sprintf(_entryName, "%s.mbk", objName);
+		sprintf(_entryName, "%s.MBK", objName);
 		loadStub = &Resource::load_MBK;
 		break;
 	case OT_PGE:
 		debug(DBG_RES, "chargement piege (pge)");
-		sprintf(_entryName, "%s.pge", objName);
+		sprintf(_entryName, "%s.PGE", objName);
 		loadStub = &Resource::load_PGE;
 		break;
 	case OT_PAL:
 		debug(DBG_RES, "chargement palettes (pal)");
-		sprintf(_entryName, "%s.pal", objName);
+		sprintf(_entryName, "%s.PAL", objName);
 		loadStub = &Resource::load_PAL;
 		break;
 	case OT_CT:
 		debug(DBG_RES, "chargement collision (ct)");
-		sprintf(_entryName, "%s.ct", objName);
+		sprintf(_entryName, "%s.CT", objName);
 		loadStub = &Resource::load_CT;
 		break;
 	case OT_MAP:
 		debug(DBG_RES, "ouverture map (map)");
-		sprintf(_entryName, "%s.map", objName);
+		sprintf(_entryName, "%s.MAP", objName);
 		loadStub = &Resource::load_MAP;
 		break;
 	case OT_SPC:
 		debug(DBG_RES, "chargement sprites caracteres (spc)");
-		strcpy(_entryName, "global.spc");
+		strcpy(_entryName, "GLOBAL.SPC");
 		loadStub = &Resource::load_SPC;
 		break;
 	case OT_RP:
 		debug(DBG_RES, "chargement positions des banks pour sprite_car (rp)");
-		sprintf(_entryName, "%s.rp", objName);
+		sprintf(_entryName, "%s.RP", objName);
 		loadStub = &Resource::load_RP;
 		break;
 	case OT_SPR:
 		debug(DBG_RES, "chargement des sprites (spr)");
-		sprintf(_entryName, "%s.spr", objName);
+		sprintf(_entryName, "%s.SPR", objName);
 		loadStub = &Resource::load_SPR;
 		break;
 	case OT_SPRM:
 		debug(DBG_RES, "chargement des sprites monstre (spr)");
-		sprintf(_entryName, "%s.spr", objName);
+		sprintf(_entryName, "%s.SPR", objName);
 		loadStub = &Resource::load_SPRM;
 		break;		
 	case OT_ICN:
 		debug(DBG_RES, "chargement des icones (icn)");
-		sprintf(_entryName, "%s.icn", objName);
+		sprintf(_entryName, "%s.ICN", objName);
 		loadStub = &Resource::load_ICN;
 		break;
 	case OT_FNT:
 		debug(DBG_RES, "chargement de la font (fnt)");
-		sprintf(_entryName, "%s.fnt", objName);
+		sprintf(_entryName, "%s.FNT", objName);
 		loadStub = &Resource::load_FNT;
 		break;
 	case OT_OBJ:
 		debug(DBG_RES, "chargement objets (obj)");
-		sprintf(_entryName, "%s.obj", objName);
+		sprintf(_entryName, "%s.OBJ", objName);
 		loadStub = &Resource::load_OBJ;
 		break;
 	case OT_ANI:
 		debug(DBG_RES, "chargement animations (ani)");
-		sprintf(_entryName, "%s.ani", objName);
+		sprintf(_entryName, "%s.ANI", objName);
 		loadStub = &Resource::load_ANI;
 		break;
 	case OT_TBN:
 		debug(DBG_RES, "chargement des textes (tbn)");
-		sprintf(_entryName, "%s.tbn", objName);
+		sprintf(_entryName, "%s.TBN", objName);
 		loadStub = &Resource::load_TBN;
 		break;
 	case OT_CMD:
 		debug(DBG_RES, "chargement des commandes (cmd)");
-		sprintf(_entryName, "%s.cmd", objName);
+		sprintf(_entryName, "%s.CMD", objName);
 		loadStub = &Resource::load_CMD;
 		break;
 	case OT_POL:
 		debug(DBG_RES, "chargement des polygones (pol)");
-		sprintf(_entryName, "%s.pol", objName);
+		sprintf(_entryName, "%s.POL", objName);
 		loadStub = &Resource::load_POL;
 		break;
 	default:

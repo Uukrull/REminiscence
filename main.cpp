@@ -24,6 +24,7 @@ static const char *USAGE =
 	"REminiscence - Flashback Interpreter\n"
 	"Usage: rs [OPTIONS]...\n"
 	"  --datapath=PATH   Path to where the game is installed (default '.')\n"
+	"  --savepath=PATH   Path to where the save files are stored (default '.')\n"
 	"  --version=VER     Version of the game to load : fr, us (default)\n";
 
 static const struct {
@@ -48,12 +49,14 @@ static bool parseOption(const char *arg, const char *longCmd, const char **opt) 
 #undef main
 int main(int argc, char *argv[]) {
 	const char *dataPath = ".";
+	const char *savePath = ".";
 	const char *version = 0;
 	Version ver = VER_US;
 	for (int i = 1; i < argc; ++i) {
 		bool opt = false;
 		if (strlen(argv[i]) >= 2) {
 			opt |= parseOption(argv[i], "datapath=", &dataPath);
+			opt |= parseOption(argv[i], "savepath=", &savePath);
 			opt |= parseOption(argv[i], "version=", &version);
 		}
 		if (!opt) {
@@ -69,9 +72,9 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	g_debugMask = 0; // DBG_CUT | DBG_VIDEO | DBG_RES | DBG_MENU | DBG_PGE | DBG_GAME | DBG_UNPACK | DBG_COL;
+	g_debugMask = DBG_INFO; // DBG_CUT | DBG_VIDEO | DBG_RES | DBG_MENU | DBG_PGE | DBG_GAME | DBG_UNPACK | DBG_COL;
 	SystemStub *stub = SystemStub_SDL_create();
-	Game *g = new Game(stub, dataPath, ver);
+	Game *g = new Game(stub, dataPath, savePath, ver);
 	g->run();
 	delete g;
 	delete stub;
