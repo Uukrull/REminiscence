@@ -57,7 +57,6 @@ struct Mixer {
 		MAX_VOLUME = 64
 	};
 
-	void *_mutex;
 	SystemStub *_stub;
 	MixerChannel _channels[NUM_CHANNELS];
 	PremixHook _premixHook;

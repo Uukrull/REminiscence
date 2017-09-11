@@ -1,6 +1,6 @@
 
 REminiscence README
-Release version: 0.2.0 (Mar 11 2011)
+Release version: 0.2.1 (Mar 15 2011)
 -------------------------------------------------------------------------------
 
 
@@ -21,37 +21,12 @@ Update the defines in the Makefile if needed. The SDL and zlib libraries are req
 Data Files:
 -----------
 
-You will need the original files, here is the required list :
+You will need the original files of the PC (DOS or CD) or Amiga release.
+If you have a version distributed by SSI, you'll have to rename the files
+and drop the 'ssi' suffix (ie. logosssi.cmd -> logos.cmd).
 
-	FB_TXT.FNT
-	GLOBAL.ICN
-	GLOBAL.FIB
-	GLOBAL.SPC
-	*.OFF
-	*.SPR
-	*.MAP
-	*.PAL
-	*.ANI
-	*.CT
-	*.MBK
-	*.OBJ
-	*.PGE
-	*.RP
-	*.TBN
-	*.CMD
-	*.POL
-	*.SEQ
-	*CINE.*
-
-If you have a version distributed by SSI, you'll have to rename some files :
-
-	logosssi.cmd -> logos.cmd
-	logosssi.pol -> logos.pol
-	menu1ssi.map -> menu1.map
-	menu1ssi.pal -> menu1.pal
-
-In order to hear music, you'll need the original music files (.mod) of the
-Amiga version. Copy them to the DATA directory and rename them like this :
+To hear background music during polygonal cutscenes with the PC version,
+you'll need to copy the .mod files of the Amiga version :
 
 	mod.flashback-ascenseur
 	mod.flashback-ceinturea

@@ -80,24 +80,19 @@ struct SystemStub {
 	virtual void startAudio(AudioCallback callback, void *param) = 0;
 	virtual void stopAudio() = 0;
 	virtual uint32 getOutputSampleRate() = 0;
-
-	virtual void *createMutex() = 0;
-	virtual void destroyMutex(void *mutex) = 0;
-	virtual void lockMutex(void *mutex) = 0;
-	virtual void unlockMutex(void *mutex) = 0;
+	virtual void lockAudio() = 0;
+	virtual void unlockAudio() = 0;
 };
 
-struct MutexStack {
+struct LockAudioStack {
+	LockAudioStack(SystemStub *stub)
+		: _stub(stub) {
+		_stub->lockAudio();
+	}
+	~LockAudioStack() {
+		_stub->unlockAudio();
+	}
 	SystemStub *_stub;
-	void *_mutex;
-
-	MutexStack(SystemStub *stub, void *mutex)
-		: _stub(stub), _mutex(mutex) {
-		_stub->lockMutex(_mutex);
-	}
-	~MutexStack() {
-		_stub->unlockMutex(_mutex);
-	}
 };
 
 extern SystemStub *SystemStub_SDL_create();

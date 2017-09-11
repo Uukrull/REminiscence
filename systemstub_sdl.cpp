@@ -56,10 +56,8 @@ struct SystemStub_SDL : SystemStub {
 	virtual void startAudio(AudioCallback callback, void *param);
 	virtual void stopAudio();
 	virtual uint32 getOutputSampleRate();
-	virtual void *createMutex();
-	virtual void destroyMutex(void *mutex);
-	virtual void lockMutex(void *mutex);
-	virtual void unlockMutex(void *mutex);
+	virtual void lockAudio();
+	virtual void unlockAudio();
 
 	void prepareGfxMode();
 	void cleanupGfxMode();
@@ -519,20 +517,12 @@ uint32 SystemStub_SDL::getOutputSampleRate() {
 	return SOUND_SAMPLE_RATE;
 }
 
-void *SystemStub_SDL::createMutex() {
-	return SDL_CreateMutex();
+void SystemStub_SDL::lockAudio() {
+	SDL_LockAudio();
 }
 
-void SystemStub_SDL::destroyMutex(void *mutex) {
-	SDL_DestroyMutex((SDL_mutex *)mutex);
-}
-
-void SystemStub_SDL::lockMutex(void *mutex) {
-	SDL_mutexP((SDL_mutex *)mutex);
-}
-
-void SystemStub_SDL::unlockMutex(void *mutex) {
-	SDL_mutexV((SDL_mutex *)mutex);
+void SystemStub_SDL::unlockAudio() {
+	SDL_UnlockAudio();
 }
 
 void SystemStub_SDL::prepareGfxMode() {

@@ -25,7 +25,7 @@
 
 Game::Game(SystemStub *stub, FileSystem *fs, const char *savePath, int level, ResourceType ver, Language lang)
 	: _cut(&_modPly, &_res, stub, &_vid), _menu(&_modPly, &_res, stub, &_vid),
-	_mix(stub), _modPly(&_mix, fs), _res(fs, ver, lang), _seqPly(stub), _sfxPly(&_mix), _vid(&_res, stub),
+	_mix(stub), _modPly(&_mix, fs), _res(fs, ver, lang), _seqPly(stub, &_mix), _sfxPly(&_mix), _vid(&_res, stub),
 	_stub(stub), _fs(fs), _savePath(savePath) {
 	_stateSlot = 1;
 	_inp_demo = 0;
@@ -272,6 +272,7 @@ void Game::playCutscene(int id) {
 			        if (playCutsceneSeq(name)) {
 					if (_cut._id == 0x3D) {
 						playCutsceneSeq("CREDITS.SEQ");
+						_cut._interrupted = false;
 					} else {
 						_cut._id = 0xFFFF;
 					}
@@ -935,6 +936,10 @@ void Game::drawObjectFrame(const uint8 *bankDataPtr, const uint8 *dataPtr, int16
 
 	switch (_res._type) {
 	case kResourceTypeAmiga:
+		if (sprite_w == 24) {
+			// TODO: fix p24xN
+			return;
+		}
 		_vid.AMIGA_decodeSpc(src, sprite_w, sprite_h, _res._memBuf);
 		break;
 	case kResourceTypePC:
@@ -1148,7 +1153,6 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	}
 	_vid.markBlockAsDirty(pos_x, pos_y, sprite_clipped_w, sprite_clipped_h);
 }
-
 
 int Game::loadMonsterSprites(LivePGE *pge) {
 	debug(DBG_GAME, "Game::loadMonsterSprites()");

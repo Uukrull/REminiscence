@@ -480,7 +480,7 @@ static const uint8 *AMIGA_mirrorX(const uint8 *a2) {
 	return buf;
 }
 
-static void AMIGA_blit4p8x8(uint8 *dst, int pitch, const uint8 *src, bool masked, int colorKey = -1) {
+static void AMIGA_blit4p8x8(uint8 *dst, int pitch, const uint8 *src, int pal, int colorKey = -1) {
 	for (int y = 0; y < 8; ++y) {
 		for (int i = 0; i < 8; ++i) {
 			const int mask = 1 << (7 - i);
@@ -491,7 +491,7 @@ static void AMIGA_blit4p8x8(uint8 *dst, int pitch, const uint8 *src, bool masked
 				}
 			}
 			if (color != colorKey) {
-				dst[i] = masked ? color + 0x80 : color;
+				dst[i] = pal + color;
 			}
 		}
 		++src;
@@ -514,8 +514,11 @@ static void AMIGA_decodeLevHelper(uint8 *dst, const uint8 *src, int offset10, in
 					if ((d3 & (1 << 11)) != 0) {
 						a2 = AMIGA_mirrorX(a2);
 					}
-					const bool masked = (d3 < (1 << 15)) == 0;
-					AMIGA_blit4p8x8(dst + y * 256 + x, 256, a2, masked);
+					int mask = 0;
+					if ((d3 < (1 << 15)) == 0) {
+						mask = 0x80;
+					}
+					AMIGA_blit4p8x8(dst + y * 256 + x, 256, a2, mask);
 				}
 			}
 		}
@@ -524,7 +527,7 @@ static void AMIGA_decodeLevHelper(uint8 *dst, const uint8 *src, int offset10, in
 		const uint8 *a0 = src + offset12;
 		for (int y = 0; y < 224; y += 8) {
 			for (int x = 0; x < 256; x += 8) {
-				const int d3 = READ_BE_UINT16(a0); a0 += 2;
+				int d3 = READ_BE_UINT16(a0); a0 += 2;
 				int d0 = d3 & 0x7FF;
 				if (d0 != 0 && sgdBuf) {
 					d0 -= 896;
@@ -537,8 +540,13 @@ static void AMIGA_decodeLevHelper(uint8 *dst, const uint8 *src, int offset10, in
 					if ((d3 & (1 << 11)) != 0) {
 						a2 = AMIGA_mirrorX(a2);
 					}
-					const bool masked = (d3 < (1 << 15)) == 0;
-					AMIGA_blit4p8x8(dst + y * 256 + x, 256, a2, masked, 0);
+					int mask = 0;
+					if ((d3 & 0x6000) != 0 && sgdBuf) {
+						mask = 0x10;
+					} else if ((d3 < (1 << 15)) == 0) {
+						mask = 0x80;
+					}
+					AMIGA_blit4p8x8(dst + y * 256 + x, 256, a2, mask, 0);
 				}
 			}
 		}

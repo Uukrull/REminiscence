@@ -26,26 +26,24 @@ Mixer::Mixer(SystemStub *stub)
 void Mixer::init() {
 	memset(_channels, 0, sizeof(_channels));
 	_premixHook = 0;
-	_mutex = _stub->createMutex();
 	_stub->startAudio(Mixer::mixCallback, this);
 }
 
 void Mixer::free() {
 	stopAll();
 	_stub->stopAudio();
-	_stub->destroyMutex(_mutex);
 }
 
 void Mixer::setPremixHook(PremixHook premixHook, void *userData) {
 	debug(DBG_SND, "Mixer::setPremixHook()");
-	MutexStack(_stub, _mutex);
+	LockAudioStack las(_stub);
 	_premixHook = premixHook;
 	_premixHookData = userData;
 }
 
 void Mixer::play(const MixerChunk *mc, uint16 freq, uint8 volume) {
 	debug(DBG_SND, "Mixer::play(%d, %d)", freq, volume);
-	MutexStack(_stub, _mutex);
+	LockAudioStack las(_stub);
 	MixerChannel *ch = 0;
 	for (int i = 0; i < NUM_CHANNELS; ++i) {
 		MixerChannel *cur = &_channels[i];
@@ -74,14 +72,13 @@ uint32 Mixer::getSampleRate() const {
 
 void Mixer::stopAll() {
 	debug(DBG_SND, "Mixer::stopAll()");
-	MutexStack(_stub, _mutex);
+	LockAudioStack las(_stub);
 	for (uint8 i = 0; i < NUM_CHANNELS; ++i) {
 		_channels[i].active = false;
 	}
 }
 
 void Mixer::mix(int8 *buf, int len) {
-	MutexStack(_stub, _mutex);
 	memset(buf, 0, len);
 	if (_premixHook) {
 		if (!_premixHook(_premixHookData, buf, len)) {

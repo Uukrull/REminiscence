@@ -2328,7 +2328,7 @@ const char *SeqPlayer::_namesTable[] = {
 	/* 0x0C */
 	0,
 	"INTRO", // 'INTRO1' (0x8007) num 0
-	"GENEXPL", // 'GEN' (0x0003) num 1
+	"RCHGBATT", // 'GEN' (0x0003) num 1
 	"TAKEBATT", // 'OBJET' (0x0001) num 11
 	/* 0x10 */
 	"TKTELER0", // 'OBJET' (0x0001) num 5

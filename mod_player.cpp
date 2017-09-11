@@ -491,7 +491,7 @@ void ModPlayer::mixSamples(int8 *buf, int samplesLen) {
 				}
 			}
 			tk->pos = pos;
-     	}
+		}
 	}
 }
 
