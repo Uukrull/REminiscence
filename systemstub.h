@@ -35,9 +35,6 @@ struct PlayerInput {
 	bool load;
 	int stateSlot;
 
-	bool inpRecord;
-	bool inpReplay;
-
 	bool mirrorMode;
 
 	uint8_t dbgMask;
@@ -45,7 +42,7 @@ struct PlayerInput {
 };
 
 struct SystemStub {
-	typedef void (*AudioCallback)(void *param, int8_t *stream, int len);
+	typedef void (*AudioCallback)(void *param, int16_t *stream, int len);
 
 	PlayerInput _pi;
 

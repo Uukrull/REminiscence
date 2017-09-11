@@ -1,6 +1,6 @@
 
 REminiscence README
-Release version: 0.3.0 ($date)
+Release version: 0.3.2
 -------------------------------------------------------------------------------
 
 
@@ -15,15 +15,14 @@ game can be found at [1], [2] and [3].
 Compiling:
 ----------
 
-Update the defines in the Makefile if needed. The SDL and zlib libraries are required.
+Update the defines in the Makefile if needed. The SDL, zlib and modplug
+libraries are required.
 
 
 Data Files:
 -----------
 
 You will need the original files of the PC (DOS or CD) or Amiga release.
-If you have a version distributed by SSI, you'll have to rename the files
-and drop the 'ssi' suffix (ie. logosssi.cmd -> logos.cmd).
 
 To hear background music during polygonal cutscenes with the PC version,
 you'll need to copy the .mod files of the Amiga version :
@@ -64,6 +63,10 @@ directory. These paths can be changed using command line switches :
     Usage: rs [OPTIONS]...
     --datapath=PATH   Path to data files (default 'DATA')
     --savepath=PATH   Path to save files (default '.')
+    --levelnum=NUM    Level to start from (default '0')
+    --fullscreen      Fullscreen display
+    --scaler=INDEX    Graphics scaler
+    --language=LANG   Language (fr,en,de,sp,it)
 
 In-game hotkeys :
 
@@ -78,8 +81,6 @@ In-game hotkeys :
     Ctrl S          save game state
     Ctrl L          load game state
     Ctrl + and -    change game state slot
-    Ctrl R          toggle input keys record
-    Ctrl P          toggle input keys replay
 
 Debug hotkeys :
 
