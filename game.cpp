@@ -24,8 +24,9 @@
 
 
 Game::Game(SystemStub *stub, const char *dataPath, const char *savePath, Version ver)
-	: _cut(&_res, stub, &_vid, ver), _menu(&_res, stub, &_vid, ver), _mix(stub), 
-	_res(dataPath), _vid(&_res, stub), _stub(stub), _ver(ver), _savePath(savePath) {
+	: _cut(&_ply, &_res, stub, &_vid, ver), _menu(&_ply, &_res, stub, &_vid, ver), 
+	_mix(stub), _ply(&_mix, dataPath), _res(dataPath), _vid(&_res, stub), _stub(stub),
+	_ver(ver), _savePath(savePath) {
 	switch (_ver) {
 	case VER_FR:
 		_stringsTable = _stringsTableFR;
@@ -34,9 +35,20 @@ Game::Game(SystemStub *stub, const char *dataPath, const char *savePath, Version
 	case VER_US:
 		_stringsTable = _stringsTableEN;
 		_textsTable = _textsTableEN;
-		break;	
+		break;
+	case VER_DE:
+		_stringsTable = _stringsTableDE;
+		_textsTable = _textsTableDE;
+		break;
+	case VER_SP:
+		_stringsTable = _stringsTableSP;
+		_textsTable = _textsTableSP;
+		break;
 	}
 	_stateSlot = 1;
+	_inp_demo = 0;
+	_inp_record = false;
+	_inp_replay = false;
 }
 
 void Game::run() {
@@ -150,7 +162,7 @@ void Game::mainLoop() {
 			}
 		}		
 		memcpy(_vid._frontLayer, _vid._backLayer, Video::GAMESCREEN_W * Video::GAMESCREEN_H);
-		inp_update();
+		pge_getInput();
 		pge_prepare();
 		col_prepareRoomState();
 		uint8 oldLevel = _currentLevel;
@@ -203,25 +215,68 @@ void Game::mainLoop() {
 			_stub->_pi.backspace = false;
 			handleInventory();
 		}
-		if (_stub->_pi.dbgMask & PlayerInput::DF_SETLIFE) {
-			_pgeLive[0].life = 0x7FFF;
+		inp_handleSpecialKeys();
+	}
+}
+
+void Game::inp_handleSpecialKeys() {
+	if (_stub->_pi.dbgMask & PlayerInput::DF_SETLIFE) {
+		_pgeLive[0].life = 0x7FFF;
+	}
+	if (_stub->_pi.load) {
+		loadGameState(_stateSlot);
+		_stub->_pi.load = false;
+	}
+	if (_stub->_pi.save) {
+		saveGameState(_stateSlot);
+		_stub->_pi.save = false;
+	}
+	if (_stub->_pi.stateSlot != 0) {
+		int8 slot = _stateSlot + _stub->_pi.stateSlot;
+		if (slot >= 1 && slot < 100) {
+			_stateSlot = slot;
+			debug(DBG_INFO, "Current game state slot is %d", _stateSlot);
 		}
-		if (_stub->_pi.load) {
-			loadGameState(_stateSlot);
-			_stub->_pi.load = false;
+		_stub->_pi.stateSlot = 0;
+	}
+	if (_stub->_pi.inpRecord || _stub->_pi.inpReplay) {
+		bool replay = false;
+		bool record = false;
+		char demoFile[20];
+		makeGameDemoName(demoFile);
+		if (_inp_demo) {
+			_inp_demo->close();
+			delete _inp_demo;
 		}
-		if (_stub->_pi.save) {
-			saveGameState(_stateSlot);
-			_stub->_pi.save = false;
-		}
-		if (_stub->_pi.stateSlot != 0) {
-			int8 slot = _stateSlot + _stub->_pi.stateSlot;
-			if (slot >= 1 && slot < 100) {
-				_stateSlot = slot;
-				debug(DBG_INFO, "Current game state slot is %d", _stateSlot);
+		_inp_demo = new File(true);
+		if (_stub->_pi.inpRecord) {
+			if (_inp_record) {
+				debug(DBG_INFO, "Stop recording input keys");
+			} else {
+				if (_inp_demo->open(demoFile, _savePath, "wb")) {
+					debug(DBG_INFO, "Recording input keys");
+					record = true;
+				} else {
+					warning("Unable to save demo file '%s'", demoFile);
+				}
 			}
-			_stub->_pi.stateSlot = 0;
 		}
+		if (_stub->_pi.inpReplay) {
+			if (_inp_replay) {
+				debug(DBG_INFO, "Stop replaying input keys");
+			} else {
+				if (_inp_demo->open(demoFile, _savePath, "rb")) {
+					debug(DBG_INFO, "Replaying input keys");
+					replay = true;
+				} else {
+					warning("Unable to open demo file '%s'", demoFile);
+				}
+			}
+		}
+		_inp_record = record;
+		_inp_replay = replay;
+		_stub->_pi.inpReplay = false;
+		_stub->_pi.inpRecord = false;
 	}
 }
 
@@ -243,7 +298,7 @@ void Game::showFinalScore() {
 	_vid.drawString(textBuf, (256 - strlen(textBuf) * 8) / 2, 16, 0xE7);
 	while (!_stub->_pi.quit) {
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
-		_stub->updateScreen();
+		_stub->updateScreen(0);
 		_stub->processEvents();
 		if (_stub->_pi.enter) {
 			_stub->_pi.enter = false;
@@ -291,7 +346,7 @@ bool Game::handleContinueAbort() {
 			return (current_color == 0);
 		}
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._frontLayer, 256);
-		_stub->updateScreen();
+		_stub->updateScreen(0);
 		if (col.b >= 0x3D) {
 			color_inc = 0;
 		}
@@ -339,7 +394,7 @@ void Game::drawLevelTexts() {
 	}
 	if (obj == 0 || obj < 0) {
 		return;
-	}	
+	}
 	_printLevelCodeCounter = 0;
 	if (_textToDisplay == 0xFFFF) {
 		uint8 icon_num = obj - 1;
@@ -380,7 +435,7 @@ void Game::drawStoryTexts() {
 			}
 			_vid.updateScreen();
 			while (!_stub->_pi.backspace && !_stub->_pi.quit) {
-				_stub->processEvents();
+				inp_update();
 				_stub->sleep(80);
 			}
 			_stub->_pi.backspace = false;
@@ -545,7 +600,7 @@ void Game::drawObject(const uint8 *dataPtr, int16 x, int16 y, uint8 flags) {
 	uint8 slot = _res._rp[dataPtr[0]];
 	uint8 *data = findBankData(slot);
 	if (data == 0) {
-		data = processMBK(slot);
+		data = loadBankData(slot);
 	}
 	_bankDataPtrs = data;
 	int16 posy = y - (int8)dataPtr[2];
@@ -802,12 +857,12 @@ void Game::drawCharacter(const uint8 *dataPtr, int16 pos_x, int16 pos_y, uint8 a
 	_vid.markBlockAsDirty(pos_x, pos_y, sprite_clipped_w, sprite_clipped_h);
 }
 
-uint8 *Game::processMBK(uint16 MbkEntryNum) {
-	debug(DBG_GAME, "Game::processMBK(%d)", MbkEntryNum);
+uint8 *Game::loadBankData(uint16 MbkEntryNum) {
+	debug(DBG_GAME, "Game::loadBankData(%d)", MbkEntryNum);
 	MbkEntry *me = &_res._mbk[MbkEntryNum];
-	uint16 _cx = _lastBankData - _firstBankData;
+	uint16 avail = _lastBankData - _firstBankData;
 	uint16 size = (me->len & 0x7FFF) * 32;
-	if (_cx < size) {
+	if (avail < size) {
 		_curBankSlot = &_bankSlots[0];
 		_curBankSlot->entryNum = 0xFFFF;
 		_curBankSlot->ptr = 0;
@@ -820,18 +875,17 @@ uint8 *Game::processMBK(uint16 MbkEntryNum) {
 	_curBankSlot->ptr = 0;
 	const uint8 *data = _res._mbkData + me->offset;
 	if (me->len & 0x8000) {
+		warning("me->len & 0x8000");
 		memcpy(_firstBankData, data, size);
 	} else {
 		assert(me->offset != 0);
-		Unpack unp;
-		int decSize;
-		bool ret = unp.unpack(_firstBankData, data, 0, decSize);
+		bool ret = delphine_unpack(_firstBankData, data, 0);
 		assert(ret);
 	}
-	uint8 *bank_data = _firstBankData;
+	uint8 *bankData = _firstBankData;
 	_firstBankData += size;
 	assert(_firstBankData < _lastBankData);
-	return bank_data;
+	return bankData;
 }
 
 int Game::loadMonsterSprites(LivePGE *pge) {
@@ -923,12 +977,9 @@ void Game::loadLevelData() {
 
 uint8 *Game::findBankData(uint16 entryNum) {
 	BankSlot *slot = &_bankSlots[0];
-	while (1) {
+	while (slot->entryNum != 0xFFFF) {
 		if (slot->entryNum == entryNum) {
 			return slot->ptr;
-		}
-		if (slot->entryNum == 0xFFFF) {
-			break;
 		}
 		++slot;
 	}
@@ -1048,7 +1099,7 @@ void Game::handleInventory() {
 		
 			_vid.updateScreen();
 			_stub->sleep(80);
-			_stub->processEvents();
+			inp_update();
 
 			if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
 				_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;				
@@ -1097,16 +1148,37 @@ void Game::handleInventory() {
 }
 
 void Game::inp_update() {
+	if (_inp_replay && _inp_demo) {
+		uint8 keymask = _inp_demo->readByte();
+		if (_inp_demo->ioErr()) {
+			_inp_replay = false;
+		} else {
+			_stub->_pi.dirMask = keymask & 0xF;
+			_stub->_pi.enter = (keymask & 0x10) != 0;
+			_stub->_pi.space = (keymask & 0x20) != 0;
+			_stub->_pi.shift = (keymask & 0x40) != 0;
+			_stub->_pi.quit = (keymask & 0x80) != 0;
+		}
+	}
 	_stub->processEvents();
-	_pge_inpKeysMask = _stub->_pi.dirMask;
-	if (_stub->_pi.enter) {
-		_pge_inpKeysMask |= 0x10;
-	}
-	if (_stub->_pi.space) {
-		_pge_inpKeysMask |= 0x20;
-	}
-	if (_stub->_pi.shift) {
-		_pge_inpKeysMask |= 0x40;
+	if (_inp_record && _inp_demo) {
+		uint8 keymask = _stub->_pi.dirMask;
+		if (_stub->_pi.enter) {
+			keymask |= 0x10;
+		}
+		if (_stub->_pi.space) {
+			keymask |= 0x20;
+		}
+		if (_stub->_pi.shift) {
+			keymask |= 0x40;
+		}
+		if (_stub->_pi.quit) {
+			keymask |= 0x80;
+		}
+		_inp_demo->writeByte(keymask);
+		if (_inp_demo->ioErr()) {
+			_inp_record = false;
+		}
 	}
 }
 
@@ -1122,8 +1194,12 @@ void Game::snd_playSound(uint8 sfxId, uint8 softVol) {
 	}
 }
 
+void Game::makeGameDemoName(char *buf) {
+	sprintf(buf, "rs-level%d.demo", _currentLevel + 1);
+}
+
 void Game::makeGameStateName(uint8 slot, char *buf) {
-	sprintf(buf, "rs%d.s%02d", _currentLevel + 1, slot);
+	sprintf(buf, "rs-level%d-%02d.state", _currentLevel + 1, slot);
 }
 
 void Game::saveGameState(uint8 slot) {
@@ -1135,7 +1211,7 @@ void Game::saveGameState(uint8 slot) {
 	} else {
 		// header
 		f.writeUint32BE('FBSV');
-		f.writeUint16BE(0);
+		f.writeUint16BE(2);
 		char hdrdesc[32];
 		memset(hdrdesc, 0, sizeof(hdrdesc));
 		sprintf(hdrdesc, "level%d", _currentLevel + 1);
@@ -1162,8 +1238,8 @@ void Game::loadGameState(uint8 slot) {
 			warning("Bad save state format");
 		} else {
 			uint16 ver = f.readUint16BE();
-			if (ver != 0) {
-				warning("Invalid save state version");				
+			if (ver != 2) {
+				warning("Invalid save state version");
 			} else {
 				char hdrdesc[32];
 				f.read(hdrdesc, sizeof(hdrdesc));
@@ -1180,9 +1256,18 @@ void Game::loadGameState(uint8 slot) {
 }
 
 void Game::saveState(File *f) {
-	f->writeUint32BE(_col_slots2Cur - &_col_slots2[0]);
-	f->writeUint32BE(_col_slots2Next - &_col_slots2[0]);
+	f->writeByte(_skillLevel);
 	f->writeUint32BE(_score);
+	if (_col_slots2Cur == 0) {
+		f->writeUint32BE(0xFFFFFFFF);
+	} else {
+		f->writeUint32BE(_col_slots2Cur - &_col_slots2[0]);
+	}
+	if (_col_slots2Next == 0) {
+		f->writeUint32BE(0xFFFFFFFF);
+	} else {
+		f->writeUint32BE(_col_slots2Next - &_col_slots2[0]);
+	}
 	for (int i = 0; i < _res._pgeNum; ++i) {
 		LivePGE *pge = &_pgeLive[i];
 		f->writeUint16BE(pge->obj_type);
@@ -1200,13 +1285,29 @@ void Game::saveState(File *f) {
 		f->writeByte(pge->flags);
 		f->writeByte(pge->index);
 		f->writeUint16BE(pge->first_obj_number);
-		f->writeUint32BE(pge->next_PGE_in_room - &_pgeLive[0]);
-		f->writeUint32BE(pge->init_PGE - &_res._pgeInit[0]);		
+		if (pge->next_PGE_in_room == 0) {
+			f->writeUint32BE(0xFFFFFFFF);
+		} else {
+			f->writeUint32BE(pge->next_PGE_in_room - &_pgeLive[0]);
+		}
+		if (pge->init_PGE == 0) {
+			f->writeUint32BE(0xFFFFFFFF);
+		} else {
+			f->writeUint32BE(pge->init_PGE - &_res._pgeInit[0]);
+		}
 	}
 	f->write(&_res._ctData[0x100], 0x1C00);
 	for (CollisionSlot2 *cs2 = &_col_slots2[0]; cs2 < _col_slots2Cur; ++cs2) {
-		f->writeUint32BE(cs2->next_slot - &_col_slots2[0]);
-		f->writeUint32BE(cs2->unk2 - &_res._ctData[0x100]);
+		if (cs2->next_slot == 0) {
+			f->writeUint32BE(0xFFFFFFFF);
+		} else {
+			f->writeUint32BE(cs2->next_slot - &_col_slots2[0]);
+		}
+		if (cs2->unk2 == 0) {
+			f->writeUint32BE(0xFFFFFFFF);
+		} else {
+			f->writeUint32BE(cs2->unk2 - &_res._ctData[0x100]);
+		}
 		f->writeByte(cs2->data_size);
 		f->write(cs2->data_buf, 0x10);
 	}
@@ -1214,11 +1315,23 @@ void Game::saveState(File *f) {
 
 void Game::loadState(File *f) {
 	uint16 i;
+	uint32 off;
+	_skillLevel = f->readByte();
+	_score = f->readUint32BE();
 	memset(_pge_liveTable2, 0, sizeof(_pge_liveTable2));
 	memset(_pge_liveTable1, 0, sizeof(_pge_liveTable1));
-	_col_slots2Cur = &_col_slots2[0] + f->readUint32BE();
-	_col_slots2Next = &_col_slots2[0] + f->readUint32BE();
-	_score = f->readUint32BE();
+	off = f->readUint32BE();
+	if (off == 0xFFFFFFFF) {
+		_col_slots2Cur = 0;
+	} else {
+		_col_slots2Cur = &_col_slots2[0] + off;
+	}
+	off = f->readUint32BE();
+	if (off == 0xFFFFFFFF) {
+		_col_slots2Next = 0;
+	} else {
+		_col_slots2Next = &_col_slots2[0] + off;
+	}
 	for (i = 0; i < _res._pgeNum; ++i) {
 		LivePGE *pge = &_pgeLive[i];
 		pge->obj_type = f->readUint16BE();
@@ -1236,13 +1349,33 @@ void Game::loadState(File *f) {
 		pge->flags = f->readByte();
 		pge->index = f->readByte();
 		pge->first_obj_number = f->readUint16BE();
-		pge->next_PGE_in_room = &_pgeLive[0] + f->readUint32BE();
-		pge->init_PGE = &_res._pgeInit[0] + f->readUint32BE();
+		off = f->readUint32BE();
+		if (off == 0xFFFFFFFF) {
+			pge->next_PGE_in_room = 0;
+		} else {
+			pge->next_PGE_in_room = &_pgeLive[0] + off;
+		}
+		off = f->readUint32BE();
+		if (off == 0xFFFFFFFF) {
+			pge->init_PGE = 0;
+		} else {
+			pge->init_PGE = &_res._pgeInit[0] + off;
+		}
 	}
 	f->read(&_res._ctData[0x100], 0x1C00);
 	for (CollisionSlot2 *cs2 = &_col_slots2[0]; cs2 < _col_slots2Cur; ++cs2) {
-		cs2->next_slot = &_col_slots2[0] + f->readUint32BE();
-		cs2->unk2 = &_res._ctData[0x100] + f->readUint32BE();
+		off = f->readUint32BE();
+		if (off == 0xFFFFFFFF) {
+			cs2->next_slot = 0;
+		} else {
+			cs2->next_slot = &_col_slots2[0] + off;
+		}
+		off = f->readUint32BE();
+		if (off == 0xFFFFFFFF) {
+			cs2->unk2 = 0;
+		} else {
+			cs2->unk2 = &_res._ctData[0x100] + off;
+		}
 		cs2->data_size = f->readByte();
 		f->read(cs2->data_buf, 0x10);
 	}

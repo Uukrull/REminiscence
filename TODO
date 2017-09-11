@@ -1,7 +1,7 @@
 
 TODO
-  - better localisation code
-  - enum Piege flags
-  - music (maybe use amiga MODs instead of MIDI)
   - code cleanup
-  - input recording/playing
+    * better localisation code
+    * cleanup the mixer/sound/mod_player mess
+    * split Game class
+  - add support for MIDI music (maybe)

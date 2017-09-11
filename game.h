@@ -23,6 +23,7 @@
 #include "cutscene.h"
 #include "menu.h"
 #include "mixer.h"
+#include "mod_player.h"
 #include "resource.h"
 #include "video.h"
 
@@ -56,14 +57,19 @@ struct Game {
 	static const char *_monsterNames[];
 	static const uint8 _stringsTableFR[];
 	static const uint8 _stringsTableEN[];
+	static const uint8 _stringsTableDE[];
+	static const uint8 _stringsTableSP[];
 	static const char *_textsTableFR[];
 	static const char *_textsTableEN[];
+	static const char *_textsTableDE[];
+	static const char *_textsTableSP[];
 	static const pge_OpcodeProc _pge_opcodeTable[];
 	static const uint8 _pge_modKeysTable[];
 	
 	Cutscene _cut;
 	Menu _menu;
 	Mixer _mix;
+	Player _ply;
 	Resource _res;
 	Video _vid;
 	SystemStub *_stub;
@@ -124,7 +130,7 @@ struct Game {
 	void drawObjectFrame(const uint8 *dataPtr, int16 x, int16 y, uint8 flags);
 	void decodeCharacterFrame(const uint8 *dataPtr, uint8 *dstPtr);
 	void drawCharacter(const uint8 *dataPtr, int16 x, int16 y, uint8 a, uint8 b, uint8 flags);
-	uint8 *processMBK(uint16 MbkEntryNum);
+	uint8 *loadBankData(uint16 MbkEntryNum);
 	int loadMonsterSprites(LivePGE *pge);
 	uint16 getRandomNumber();
 	void changeLevel();
@@ -163,6 +169,7 @@ struct Game {
 	uint16 pge_processOBJ(LivePGE *pge);
 	void pge_setupOtherPieges(LivePGE *pge, InitPGE *init_pge);
 	void pge_addToCurrentRoomList(LivePGE *pge, uint8 room);
+	void pge_getInput();
 	int pge_op_isInpUp(ObjectOpcodeArgs *args);
 	int pge_op_isInpBackward(ObjectOpcodeArgs *args);
 	int pge_op_isInpDown(ObjectOpcodeArgs *args);
@@ -227,9 +234,9 @@ struct Game {
 	int pge_op_setPiegeCounter(ObjectOpcodeArgs *args);
 	int pge_op_decPiegeCounter(ObjectOpcodeArgs *args);
 	int pge_o_unk0x40(ObjectOpcodeArgs *args);
-	int pge_o_unk0x41(ObjectOpcodeArgs *args);
-	int pge_o_unk0x42(ObjectOpcodeArgs *args);
-	int pge_o_unk0x43(ObjectOpcodeArgs *args);
+	int pge_op_wakeUpPiege(ObjectOpcodeArgs *args);
+	int pge_op_removePiege(ObjectOpcodeArgs *args);
+	int pge_op_removePiegeIfNotNear(ObjectOpcodeArgs *args);
 	int pge_op_loadPiegeCounter(ObjectOpcodeArgs *args);
 	int pge_o_unk0x45(ObjectOpcodeArgs *args);
 	int pge_o_unk0x46(ObjectOpcodeArgs *args);
@@ -355,10 +362,18 @@ struct Game {
 	int col_detectGunHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 arg4, int16);
 	int col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 callback1, col_Callback2 callback2, int16 argA, int16 argC);
 
+	
+	void inp_handleSpecialKeys();
 	void inp_update();
+	
+	bool _inp_replay;
+	bool _inp_record;
+	File *_inp_demo;
+	
 
 	void snd_playSound(uint8 sfxId, uint8 softVol);
 	
+	void makeGameDemoName(char *buf);
 	void makeGameStateName(uint8 slot, char *buf);
 	void saveGameState(uint8 slot);
 	void loadGameState(uint8 slot);

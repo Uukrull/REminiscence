@@ -21,19 +21,16 @@
 
 #include "intern.h"
 
-struct Unpack {
-	int _size, _datasize;
-	uint32 _crc;
-	uint32 _chk;
-	uint8 *_dst;
-	const uint8 *_src;
 
-	bool unpack(uint8 *dst, const uint8 *src, int size, int &dec_size);
-	void decUnk1(uint8 numChunks, uint8 addCount);
-	void decUnk2(uint8 numChunks);
-	uint16 getCode(uint8 numChunks);
-	bool nextChunk();
-	bool rcr(bool CF);
+struct UnpackCtx {
+	int size, datasize;
+	uint32 crc;
+	uint32 chk;
+	uint8 *dst;
+	const uint8 *src;	
 };
+
+extern bool delphine_unpack(uint8 *dst, const uint8 *src, int len);
+
 
 #endif // __UNPACK_H__

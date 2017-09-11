@@ -26,13 +26,14 @@ struct SystemStub_SDL : SystemStub {
 		MAX_BLIT_RECTS = 200,
 		SOUND_SAMPLE_RATE = 11025,
 		JOYSTICK_COMMIT_VALUE = 3200
-	};	
+	};
 
 	uint8 *_offscreen;
 	SDL_Surface *_screen;
 	SDL_Surface *_sclscreen;
 	bool _fullscreen;
 	uint8 _scaler;
+	uint8 _overscanColor;
 	uint16 _pal[256];
 	uint16 _screenW, _screenH;
 	SDL_Joystick *_joystick;
@@ -47,7 +48,7 @@ struct SystemStub_SDL : SystemStub {
 	virtual void getPaletteEntry(uint8 i, Color *c);
 	virtual void setOverscanColor(uint8 i);
 	virtual void copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch);
-	virtual void updateScreen();
+	virtual void updateScreen(uint8 shakeOffset);
 	virtual void processEvents();
 	virtual void sleep(uint32 duration);
 	virtual uint32 getTimeStamp();
@@ -126,7 +127,7 @@ void SystemStub_SDL::getPaletteEntry(uint8 i, Color *c) {
 }
 
 void SystemStub_SDL::setOverscanColor(uint8 i) {
-	// useful for fullscreen mode
+	_overscanColor = i;
 }
 
 void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
@@ -157,23 +158,58 @@ void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint
 	}
 }
 
-void SystemStub_SDL::updateScreen() {
-	for (int i = 0; i < _numBlitRects; ++i) {
-		SDL_Rect *br = &_blitRects[i];
-		int16 dx = br->x * _scalers[_scaler].factor;
-		int16 dy = br->y * _scalers[_scaler].factor;
+void SystemStub_SDL::updateScreen(uint8 shakeOffset) {
+	if (shakeOffset == 0) {
+		for (int i = 0; i < _numBlitRects; ++i) {
+			SDL_Rect *br = &_blitRects[i];
+			int16 dx = br->x * _scalers[_scaler].factor;
+			int16 dy = br->y * _scalers[_scaler].factor;
+			SDL_LockSurface(_sclscreen);
+			uint16 *dst = (uint16 *)_sclscreen->pixels + dy * _sclscreen->pitch / 2 + dx;
+			const uint16 *src = (uint16 *)_offscreen + (br->y + 1) * _screenW + (br->x + 1);
+			(*_scalers[_scaler].proc)(dst, _sclscreen->pitch, src, _screenW, br->w, br->h);
+			SDL_UnlockSurface(_sclscreen);
+			br->x *= _scalers[_scaler].factor;
+			br->y *= _scalers[_scaler].factor;
+			br->w *= _scalers[_scaler].factor;
+			br->h *= _scalers[_scaler].factor;
+			SDL_BlitSurface(_sclscreen, br, _screen, br);
+		}
+		SDL_UpdateRects(_screen, _numBlitRects, _blitRects);
+	} else {
+//		shakeOffset *= 4;
+		
 		SDL_LockSurface(_sclscreen);
-		uint16 *dst = (uint16 *)_sclscreen->pixels + dy * _sclscreen->pitch / 2 + dx;
-		const uint16 *src = (uint16 *)_offscreen + (br->y + 1) * _screenW + (br->x + 1);
-		(*_scalers[_scaler].proc)(dst, _sclscreen->pitch, src, _screenW, br->w, br->h);
+		uint16 w = _screenW;
+		uint16 h = _screenH - shakeOffset;
+		uint16 *dst = (uint16 *)_sclscreen->pixels;
+		const uint16 *src = (uint16 *)_offscreen + _screenW + 1;
+		(*_scalers[_scaler].proc)(dst, _sclscreen->pitch, src, _screenW, w, h);
 		SDL_UnlockSurface(_sclscreen);
-		br->x *= _scalers[_scaler].factor;
-		br->y *= _scalers[_scaler].factor;
-		br->w *= _scalers[_scaler].factor;
-		br->h *= _scalers[_scaler].factor;
-		SDL_BlitSurface(_sclscreen, br, _screen, br);
-	}	
-	SDL_UpdateRects(_screen, _numBlitRects, _blitRects);
+		
+		SDL_Rect bsr, bdr;
+		bdr.x = 0;
+		bdr.y = 0;
+		bdr.w = _screenW * _scalers[_scaler].factor;
+		bdr.h = shakeOffset * _scalers[_scaler].factor;
+		SDL_FillRect(_screen, &bdr, _pal[_overscanColor]);
+		
+		bsr.x = 0;
+		bsr.y = 0;
+		bsr.w = _screenW * _scalers[_scaler].factor;
+		bsr.h = (_screenH - shakeOffset) * _scalers[_scaler].factor;
+		bdr.x = 0;
+		bdr.y = shakeOffset * _scalers[_scaler].factor;
+		bdr.w = bsr.w;
+		bdr.h = bsr.h;
+		SDL_BlitSurface(_sclscreen, &bsr, _screen, &bdr);
+
+		bdr.x = 0;
+		bdr.y = 0;
+		bdr.w = _screenW * _scalers[_scaler].factor;
+		bdr.h = _screenH * _scalers[_scaler].factor;
+		SDL_UpdateRects(_screen, 1, &bdr);
+	}
 	_numBlitRects = 0;
 }
 
@@ -183,6 +219,21 @@ void SystemStub_SDL::processEvents() {
 		switch (ev.type) {
 		case SDL_QUIT:
 			_pi.quit = true;
+			break;
+		case SDL_JOYHATMOTION:
+			_pi.dirMask = 0;
+			if (ev.jhat.value & SDL_HAT_UP) {
+				_pi.dirMask |= PlayerInput::DIR_UP;
+			}
+			if (ev.jhat.value & SDL_HAT_DOWN) {
+				_pi.dirMask |= PlayerInput::DIR_DOWN;
+			}
+			if (ev.jhat.value & SDL_HAT_LEFT) {
+				_pi.dirMask |= PlayerInput::DIR_LEFT;
+			}
+			if (ev.jhat.value & SDL_HAT_RIGHT) {
+				_pi.dirMask |= PlayerInput::DIR_RIGHT;
+			}
 			break;
 		case SDL_JOYAXISMOTION:
 			switch (ev.jaxis.axis) {
@@ -308,6 +359,10 @@ void SystemStub_SDL::processEvents() {
 					_pi.stateSlot = 1;
 				} else if (ev.key.keysym.sym == SDLK_KP_MINUS) {
 					_pi.stateSlot = -1;
+				} else if (ev.key.keysym.sym == SDLK_r) {
+					_pi.inpRecord = true;
+				} else if (ev.key.keysym.sym == SDLK_p) {
+					_pi.inpReplay = true;
 				}
 			}
 			_pi.lastChar = ev.key.keysym.sym;

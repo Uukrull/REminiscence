@@ -21,6 +21,7 @@
 
 #include "intern.h"
 
+struct Player;
 struct Resource;
 struct SystemStub;
 struct Video;
@@ -41,8 +42,11 @@ struct Menu {
 
 	static const char *_textOptionsFR[];
 	static const char *_textOptionsEN[];
+	static const char *_textOptionsDE[];
+	static const char *_textOptionsSP[];
 	static const char *_passwords[8][3];
 	
+	Player *_ply;
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
@@ -55,7 +59,7 @@ struct Menu {
 	uint8 _charVar4;
 	uint8 _charVar5;
 	
-	Menu(Resource *res, SystemStub *stub, Video *vid, Version ver);
+	Menu(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver);
 
 	void drawString(const char *str, int16 y, int16 x, uint8 color);
 	void drawString2(const char *str, int16 y, int16 x);

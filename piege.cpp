@@ -18,6 +18,7 @@
 
 #include "cutscene.h"
 #include "resource.h"
+#include "systemstub.h"
 #include "game.h"
 
 
@@ -170,7 +171,7 @@ void Game::pge_setupNextAnimFrame(LivePGE *pge, GroupPGE *le) {
 	ObjectNode *on = _res._objectNodesMap[init_pge->obj_node_number];
 	Object *obj = &on->objects[pge->first_obj_number];
 	int i = pge->first_obj_number;
-	while (pge->obj_type == obj->type && i <= on->last_obj_number) {
+	while (i < on->last_obj_number && pge->obj_type == obj->type) {
 		GroupPGE *next_le = le;
 		while (next_le) {
 			uint16 _ax = next_le->group_id;
@@ -198,7 +199,7 @@ void Game::pge_setupNextAnimFrame(LivePGE *pge, GroupPGE *le) {
 		}
 		++obj;
 		++i;
-	}	
+	}
 	return;
 	
 set_anim:
@@ -402,7 +403,7 @@ uint16 Game::pge_processOBJ(LivePGE *pge) {
 	ObjectNode *on = _res._objectNodesMap[init_pge->obj_node_number];
 	Object *obj = &on->objects[pge->first_obj_number];
 	int i = pge->first_obj_number;
-	while (pge->obj_type == obj->type && on->last_obj_number > i) {
+	while (i < on->last_obj_number && pge->obj_type == obj->type) {
 		if (obj->opcode2 == 0x6B) return 0xFFFF;
 		if (obj->opcode2 == 0x22 && obj->opcode_arg2 <= 4) return 0xFFFF;
 		
@@ -496,6 +497,20 @@ void Game::pge_addToCurrentRoomList(LivePGE *pge, uint8 room) {
 			pge->next_PGE_in_room = temp;
 			_pge_liveTable1[pge->room_location] = pge;
 		}
+	}
+}
+
+void Game::pge_getInput() {
+	inp_update();
+	_pge_inpKeysMask = _stub->_pi.dirMask;
+	if (_stub->_pi.enter) {
+		_pge_inpKeysMask |= 0x10;
+	}
+	if (_stub->_pi.space) {
+		_pge_inpKeysMask |= 0x20;
+	}
+	if (_stub->_pi.shift) {
+		_pge_inpKeysMask |= 0x40;
 	}
 }
 
@@ -1084,7 +1099,7 @@ int Game::pge_o_unk0x40(ObjectOpcodeArgs *args) {
 	return 0;
 }
 
-int Game::pge_o_unk0x41(ObjectOpcodeArgs *args) {
+int Game::pge_op_wakeUpPiege(ObjectOpcodeArgs *args) {
 	if (args->a <= 3) {
 		int16 num = args->pge->init_PGE->counter_values[args->a];
 		if (num >= 0) {
@@ -1096,7 +1111,7 @@ int Game::pge_o_unk0x41(ObjectOpcodeArgs *args) {
 	return 1;
 }
 
-int Game::pge_o_unk0x42(ObjectOpcodeArgs *args) {
+int Game::pge_op_removePiege(ObjectOpcodeArgs *args) {
 	if (args->a <= 3) {
 		int16 num = args->pge->init_PGE->counter_values[args->a];
 		if (num >= 0) {
@@ -1107,7 +1122,7 @@ int Game::pge_o_unk0x42(ObjectOpcodeArgs *args) {
 	return 1;
 }
 
-int Game::pge_o_unk0x43(ObjectOpcodeArgs *args) {
+int Game::pge_op_removePiegeIfNotNear(ObjectOpcodeArgs *args) {
 	LivePGE *pge = args->pge;
 	if (!(pge->init_PGE->flags & 4)) goto kill_pge;
 	if (_currentRoom & 0x80) goto skip_pge;
@@ -1900,6 +1915,7 @@ int Game::pge_op_changeRoom(ObjectOpcodeArgs *args) {
 			if (_currentRoom != live_pge_2->room_location) {
 				_currentRoom = live_pge_2->room_location;
 				loadLevelMap();
+				_vid.fullRefresh();
 			}
 		}
 		pge_setupDefaultAnim(live_pge_2);
@@ -1927,8 +1943,7 @@ int Game::pge_op_changeLevel(ObjectOpcodeArgs *args) {
 }
 
 int Game::pge_op_shakeScreen(ObjectOpcodeArgs *args) {
-//	_vid_displayOffset = (getRandomNumber() & 3) - 1;
-	warning("shaking screen is not yet implemented");
+	_vid._shakeOffset = getRandomNumber() & 7;
 	return 0xFFFF;
 }
 
@@ -2053,6 +2068,7 @@ int Game::pge_updateCollisionState(LivePGE *pge, int16 pge_dy, uint8 var8) {
 		while (slot1) {
 			if (slot1->unk2 == grid_data) {
 				slot1->data_size = pge_unk1C - 1;
+				assert(pge_unk1C < 0x70);
 				memset(grid_data, var8, pge_unk1C);
 				grid_data += pge_unk1C;
 				return 1;
@@ -2063,7 +2079,7 @@ int Game::pge_updateCollisionState(LivePGE *pge, int16 pge_dy, uint8 var8) {
 				if (--i == 0) {
 					break;
 				}
-			}	
+			}
 		}
 		if (_col_slots2Cur < &_col_slots2[255]) {
 			slot1 = _col_slots2Cur;

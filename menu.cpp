@@ -17,20 +17,27 @@
  */
 
 #include "game.h"
+#include "mod_player.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "video.h"
 #include "menu.h"
 
 
-Menu::Menu(Resource *res, SystemStub *stub, Video *vid, Version ver)
-	: _res(res), _stub(stub), _vid(vid), _ver(ver) {
+Menu::Menu(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
+	: _ply(ply), _res(res), _stub(stub), _vid(vid), _ver(ver) {
 	switch (_ver) {
 	case VER_FR:
 		_textOptions = _textOptionsFR;
 		break;
 	case VER_US:
 		_textOptions = _textOptionsEN;
+		break;
+	case VER_DE:
+		_textOptions = _textOptionsDE;
+		break;
+	case VER_SP:
+		_textOptions = _textOptionsSP;
 		break;
 	}
 }
@@ -113,8 +120,10 @@ void Menu::handleInfoScreen() {
 		loadPicture("instru_f");
 		break;
 	case VER_US:
+	case VER_DE:
+	case VER_SP:
 		loadPicture("instru_e");
-		break;	
+		break;
 	}
 	_vid->fullRefresh();
 	_vid->updateScreen();
@@ -231,6 +240,7 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 	bool quit_loop = false;
 	int menu_entry = 0;
 	bool reinit_screen = true;
+	_ply->startSong(1);
 	while (!quit_loop) {
 		if (reinit_screen) {
 			_vid->fadeOut();
@@ -305,5 +315,6 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			return false;
 		}
 	}
+	_ply->stopSong();
 	return true;
 }

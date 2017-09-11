@@ -25,13 +25,15 @@ static const char *USAGE =
 	"Usage: rs [OPTIONS]...\n"
 	"  --datapath=PATH   Path to where the game is installed (default '.')\n"
 	"  --savepath=PATH   Path to where the save files are stored (default '.')\n"
-	"  --version=VER     Version of the game to load : fr, us (default)\n";
+	"  --version=VER     Version of the game to load : fr, sp, de, us (default)\n";
 
 static const struct {
 	const char *name;
 	Version ver;
 } VERSIONS[] = {
 	{ "fr",  VER_FR },
+	{ "sp",  VER_SP },
+	{ "de",  VER_DE },
 	{ "us",  VER_US }
 };
 
@@ -72,7 +74,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	g_debugMask = DBG_INFO; // DBG_CUT | DBG_VIDEO | DBG_RES | DBG_MENU | DBG_PGE | DBG_GAME | DBG_UNPACK | DBG_COL;
+	g_debugMask = DBG_INFO; // DBG_CUT | DBG_VIDEO | DBG_RES | DBG_MENU | DBG_PGE | DBG_GAME | DBG_UNPACK | DBG_COL | DBG_MOD;
 	SystemStub *stub = SystemStub_SDL_create();
 	Game *g = new Game(stub, dataPath, savePath, ver);
 	g->run();

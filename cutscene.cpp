@@ -16,14 +16,15 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include "mod_player.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "video.h"
 #include "cutscene.h"
 
 
-Cutscene::Cutscene(Resource *res, SystemStub *stub, Video *vid, Version ver)
-	: _res(res), _stub(stub), _vid(vid), _ver(ver) {
+Cutscene::Cutscene(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
+	: _ply(ply), _res(res), _stub(stub), _vid(vid), _ver(ver) {
 }
 
 void Cutscene::sync() {
@@ -68,7 +69,7 @@ void Cutscene::setPalette() {
 	setPalette0xC();
 	SWAP(_page0, _page1);
 	_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _page0, 256);
-	_stub->updateScreen();
+	_stub->updateScreen(0);
 }
 
 void Cutscene::initRotationData(uint16 a, uint16 b, uint16 c) {
@@ -88,7 +89,7 @@ uint16 Cutscene::findTextSeparators(const uint8 *p) {
 	uint8 *q = _textSep;
 	uint16 ret = 0;
 	uint16 pos = 0;
-	for ( ; *p != 0xA; ++p) {
+	for (; *p != 0xA; ++p) {
 		if (*p == 0x7C) {
 			*q++ = pos;
 			if (pos > ret) {
@@ -124,7 +125,7 @@ void Cutscene::drawText(int16 x, int16 y, const uint8 *p, uint16 color, uint8 *p
 	if (n != 0) {
 		xx += ((last_sep - *sep++) & 0xFE) * 4;
 	}
-	for ( ; *p != 0xA; ++p) {
+	for (; *p != 0xA; ++p) {
 		if (*p == 0x7C) {
 			yy += 8;
 			xx = x;
@@ -879,9 +880,9 @@ void Cutscene::mainLoop(uint16 offset) {
 	for (int i = 0; i < 0x20; ++i) {
 		_stub->setPaletteEntry(0xC0 + i, &c);
 	}
-//	if (_id != 0x4A) {
-//		loadMusic();
-//	}
+	if (_id != 0x4A) {
+		_ply->startSong(_musicTable[_id]);
+	}
 	_newPal = false;
 	_hasAlphaColor = false;
 	uint8 *p = _res->_cmd;
@@ -910,7 +911,10 @@ void Cutscene::mainLoop(uint16 offset) {
 			_stub->_pi.backspace = false;
 			_interrupted = true;
 		}
-	}	
+	}
+	if (_interrupted || _id != 0x0D) {
+		_ply->stopSong();
+	}
 }
 
 void Cutscene::load(uint16 cutName) {
@@ -924,6 +928,12 @@ void Cutscene::load(uint16 cutName) {
 		break;
 	case VER_US:
 		_res->load_CINE("ENGCINE");
+		break;
+	case VER_DE:
+		_res->load_CINE("GERCINE");
+		break;
+	case VER_SP:
+		_res->load_CINE("SPACINE");
 		break;
 	}
 }

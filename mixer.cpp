@@ -37,6 +37,7 @@ Mixer::Mixer(SystemStub *stub)
 
 void Mixer::init() {
 	memset(_channels, 0, sizeof(_channels));
+	_premixHook = 0;
 	_mutex = _stub->createMutex();
 	_stub->startAudio(Mixer::mixCallback, this);
 }
@@ -45,6 +46,13 @@ void Mixer::free() {
 	stopAll();
 	_stub->stopAudio();
 	_stub->destroyMutex(_mutex);
+}
+
+void Mixer::setPremixHook(PremixHook premixHook, void *userData) {
+	debug(DBG_SND, "Mixer::setPremixHook()");
+	MutexStack(_stub, _mutex);
+	_premixHook = premixHook;
+	_premixHookData = userData;
 }
 
 void Mixer::play(const MixerChunk *mc, uint16 freq, uint8 volume) {
@@ -60,49 +68,54 @@ void Mixer::play(const MixerChunk *mc, uint16 freq, uint8 volume) {
 			}
 		} else {
 			ch = cur;
+			break;
 		}
 	}
-	if (ch) {	 
+	if (ch) {
 		ch->active = true;
 		ch->volume = volume;
 		ch->chunk = *mc;
 		ch->chunkPos = 0;
-		ch->chunkInc = (freq << 8) / _stub->getOutputSampleRate();
+		ch->chunkInc = (freq << FRAC_BITS) / _stub->getOutputSampleRate();
 	}
+}
+
+uint32 Mixer::getSampleRate() const {
+	return _stub->getOutputSampleRate();
 }
 
 void Mixer::stopAll() {
 	debug(DBG_SND, "Mixer::stopAll()");
 	MutexStack(_stub, _mutex);
 	for (uint8 i = 0; i < NUM_CHANNELS; ++i) {
-		_channels[i].active = false;		
+		_channels[i].active = false;
 	}
 }
 
 void Mixer::mix(int8 *buf, int len) {
 	MutexStack(_stub, _mutex);
 	memset(buf, 0, len);
+	if (_premixHook) {
+		_premixHook(_premixHookData, buf, len);
+	}
 	for (uint8 i = 0; i < NUM_CHANNELS; ++i) {
 		MixerChannel *ch = &_channels[i];
 		if (ch->active) {
-			int8 *pBuf = buf;
-			for (int j = 0; j < len; ++j, ++pBuf) {
-				uint16 p1, p2;
-				uint16 ilc = (ch->chunkPos & 0xFF);
-				p1 = ch->chunkPos >> 8;
-				ch->chunkPos += ch->chunkInc;
-				if (p1 == ch->chunk.len - 1) {
+			for (int pos = 0; pos < len; ++pos) {
+				if ((ch->chunkPos >> FRAC_BITS) >= (ch->chunk.len - 1)) {
 					ch->active = false;
 					break;
-				} else {
-					p2 = p1 + 1;
 				}
 				// interpolate
-				int8 b1 = *(int8 *)(ch->chunk.data + p1);
-				int8 b2 = *(int8 *)(ch->chunk.data + p2);
-				int8 b = (uint8)((b1 * (0xFF - ilc) + b2 * ilc) >> 8);
+				int8 b0 = ch->chunk.data[(ch->chunkPos >> FRAC_BITS)];
+				int8 b1 = ch->chunk.data[(ch->chunkPos >> FRAC_BITS) + 1];
+				int a1 = ch->chunkPos & ((1 << FRAC_BITS) - 1);
+				int a0 = (1 << FRAC_BITS) - a1;
+				int8 b = (b0 * a0 + b1 * a1) >> FRAC_BITS;
 				// set volume and clamp
-				*pBuf = addclamp(*pBuf, b * ch->volume / 64);
+				buf[pos] = addclamp(buf[pos], b * ch->volume / 64);
+				
+				ch->chunkPos += ch->chunkInc;
 			}
 		}
 	}

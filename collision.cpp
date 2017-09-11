@@ -217,7 +217,7 @@ uint8 Game::col_findCurrentCollidingObject(LivePGE *pge, uint8 n1, uint8 n2, uin
 			if (col_pge->init_PGE->object_type == n1 ||
 				col_pge->init_PGE->object_type == n2 ||
 				col_pge->init_PGE->object_type == n3) {
-				return col_pge->init_PGE->unk16;
+				return col_pge->init_PGE->colliding_icon_num;
 			} else {
 				cs = cs->prev_slot;
 			}

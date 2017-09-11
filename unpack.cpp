@@ -19,83 +19,86 @@
 #include "unpack.h"
 
 
-bool Unpack::unpack(uint8 *dst, const uint8 *src, int size, int &dec_size) {
-	_src = src + size - 4;		
-	_datasize = READ_BE_UINT32(_src); _src -= 4;
-	dec_size = _datasize;
-	_dst = dst + _datasize - 1;
-	_size = 0;
-	_crc = READ_BE_UINT32(_src); _src -= 4;
-	_chk = READ_BE_UINT32(_src); _src -= 4;
-	debug(DBG_UNPACK, "Unpack::unpack() crc = 0x%X _datasize = 0x%X", _crc, _datasize);
-	_crc ^= _chk;
-	do {
-		if (!nextChunk()) {
-			_size = 1;
-			if (!nextChunk()) {
-				decUnk1(3, 0);
-			} else {
-				decUnk2(8);
-			}
-		} else {
-			uint16 c = getCode(2);
-			if (c == 3) {
-				decUnk1(8, 8);
-			} else if (c < 2) {
-				_size = c + 2;
-				decUnk2(c + 9);
-			} else {
-				_size = getCode(8);
-				decUnk2(12);
-			}
-		}
-	} while (_datasize > 0);
-	return _crc == 0;
-}
 
-void Unpack::decUnk1(uint8 numChunks, uint8 addCount) {
-	uint16 count = getCode(numChunks) + addCount + 1;
-	_datasize -= count;
-	while (count--) {
-		*_dst = (uint8)getCode(8);
-		--_dst;
+static int rcr(UnpackCtx *uc, int CF) {
+	int rCF = (uc->chk & 1);
+	uc->chk >>= 1;
+	if (CF) {
+		uc->chk |= 0x80000000;
 	}
+	return rCF;
 }
 
-void Unpack::decUnk2(uint8 numChunks) {
-	uint16 i = getCode(numChunks);
-	uint16 count = _size + 1;
-	_datasize -= count;
-	while (count--) {
-		*_dst = *(_dst + i);
-		--_dst;
+static int next_chunk(UnpackCtx *uc) {
+	int CF = rcr(uc, 0);
+	if (uc->chk == 0) {
+		uc->chk = READ_BE_UINT32(uc->src); uc->src -= 4;
+		uc->crc ^= uc->chk;
+		CF = rcr(uc, 1);
 	}
+	return CF;
 }
 
-uint16 Unpack::getCode(uint8 numChunks) {
+static uint16 get_code(UnpackCtx *uc, uint8 num_chunks) {
 	uint16 c = 0;
-	while (numChunks--) {
+	while (num_chunks--) {
 		c <<= 1;
-		if (nextChunk()) {
+		if (next_chunk(uc)) {
 			c |= 1;
 		}			
 	}
 	return c;
 }
 
-bool Unpack::nextChunk() {
-	bool CF = rcr(false);
-	if (_chk == 0) {
-		_chk = READ_BE_UINT32(_src); _src -= 4;
-		_crc ^= _chk;
-		CF = rcr(true);
+static void dec_unk1(UnpackCtx *uc, uint8 num_chunks, uint8 add_count) {
+	uint16 count = get_code(uc, num_chunks) + add_count + 1;
+	uc->datasize -= count;
+	while (count--) {
+		*uc->dst = (uint8)get_code(uc, 8);
+		--uc->dst;
 	}
-	return CF;
 }
 
-bool Unpack::rcr(bool CF) {
-	bool rCF = (_chk & 1);
-	_chk >>= 1;
-	if (CF) _chk |= 0x80000000;
-	return rCF;
+static void dec_unk2(UnpackCtx *uc, uint8 num_chunks) {
+	uint16 i = get_code(uc, num_chunks);
+	uint16 count = uc->size + 1;
+	uc->datasize -= count;
+	while (count--) {
+		*uc->dst = *(uc->dst + i);
+		--uc->dst;
+	}
+}
+
+bool delphine_unpack(uint8 *dst, const uint8 *src, int len) {
+	UnpackCtx uc;
+	uc.src = src + len - 4;
+	uc.datasize = READ_BE_UINT32(uc.src); uc.src -= 4;
+	uc.dst = dst + uc.datasize - 1;
+	uc.size = 0;
+	uc.crc = READ_BE_UINT32(uc.src); uc.src -= 4;
+	uc.chk = READ_BE_UINT32(uc.src); uc.src -= 4;
+	debug(DBG_UNPACK, "delphine_unpack() crc = 0x%X datasize = 0x%X", uc.crc, uc.datasize);
+	uc.crc ^= uc.chk;
+	do {
+		if (!next_chunk(&uc)) {
+			uc.size = 1;
+			if (!next_chunk(&uc)) {
+				dec_unk1(&uc, 3, 0);
+			} else {
+				dec_unk2(&uc, 8);
+			}
+		} else {
+			uint16 c = get_code(&uc, 2);
+			if (c == 3) {
+				dec_unk1(&uc, 8, 8);
+			} else if (c < 2) {
+				uc.size = c + 2;
+				dec_unk2(&uc, c + 9);
+			} else {
+				uc.size = get_code(&uc, 8);
+				dec_unk2(&uc, 12);
+			}
+		}
+	} while (uc.datasize > 0);
+	return uc.crc == 0;
 }

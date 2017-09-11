@@ -40,7 +40,9 @@ inline void SWAP(T &a, T &b) {
 
 enum Version {
 	VER_FR,
-	VER_US
+	VER_US,
+	VER_DE,
+	VER_SP
 };
 
 struct Color {
@@ -71,7 +73,7 @@ struct InitPGE {
 	uint8 init_room;
 	uint8 room_location;
 	uint8 init_flags;
-	uint8 unk16;
+	uint8 colliding_icon_num;
 	uint8 icon_num;
 	uint8 object_id;
 	uint8 skill;

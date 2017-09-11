@@ -29,7 +29,8 @@ Video::Video(Resource *res, SystemStub *stub)
 	_tempLayer2 = (uint8 *)malloc(GAMESCREEN_W * GAMESCREEN_H);
 	_screenBlocks = (uint8 *)malloc((GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
 	_fullRefresh = true;
-	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));	
+	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
+	_shakeOffset = 0;
 }
 
 Video::~Video() {
@@ -59,7 +60,7 @@ void Video::updateScreen() {
 //	_fullRefresh = true;
 	if (_fullRefresh) {
 		_stub->copyRect(0, 0, Video::GAMESCREEN_W, Video::GAMESCREEN_H, _frontLayer, 256);
-		_stub->updateScreen();
+		_stub->updateScreen(_shakeOffset);
 		_fullRefresh = false;
 	} else {
 		int i, j;
@@ -86,8 +87,12 @@ void Video::updateScreen() {
 			p += GAMESCREEN_W / SCREENBLOCK_W;
 		}
 		if (count != 0) {
-			_stub->updateScreen();			
+			_stub->updateScreen(_shakeOffset);			
 		}
+	}
+	if (_shakeOffset != 0) {
+		_shakeOffset = 0;
+		_fullRefresh = true;
 	}
 }
 

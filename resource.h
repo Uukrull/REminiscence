@@ -81,7 +81,7 @@ struct Resource {
 	uint8 *_pol;
 	uint8 *_cine_off;
 	uint8 *_cine_txt;
-		
+	
 	Resource(const char *dataPath);
 	~Resource();
 	

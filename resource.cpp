@@ -24,7 +24,7 @@
 Resource::Resource(const char *dataPath) {
 	memset(this, 0, sizeof(Resource));
 	_dataPath = dataPath;
-	_memBuf = (uint8 *)malloc(100 * 1024); // XXX reconsider this value
+	_memBuf = (uint8 *)malloc(0xE000);
 }
 
 Resource::~Resource() {
@@ -40,7 +40,7 @@ Resource::~Resource() {
 	free(_cine_txt);
 	for (int i = 0; i < _numSfx; ++i) {
 		free(_sfxList[i].data);
-	}	
+	}
 }
 
 void Resource::clearLevelRes() {	
@@ -307,12 +307,8 @@ void Resource::load_CT(File *pf) {
 	uint8 *tmp = (uint8 *)malloc(len);
 	assert(tmp);
 	pf->read(tmp, len);
-	
-	Unpack unp;
-	int decSize;
-	bool ret = unp.unpack((uint8 *)_ctData, tmp, len, decSize);
-	assert(ret && decSize == 0x1D00);
-	
+	bool ret = delphine_unpack((uint8 *)_ctData, tmp, len);
+	assert(ret);
 	free(tmp);
 }
 
@@ -430,6 +426,7 @@ void Resource::load_OBJ(File *f) {
 			f->seek(offsets[i] + 2);
 			on->last_obj_number = f->readUint16LE();
 			on->num_objects = objectsCount[iObj];
+			debug(DBG_RES, "last = %d num = %d", on->last_obj_number, on->num_objects);
 			on->objects = (Object *)malloc(sizeof(Object) * on->num_objects);
 			for (uint16 j = 0; j < on->num_objects; ++j) {
 				Object *obj = &on->objects[j];
@@ -475,7 +472,7 @@ void Resource::load_PGE(File *f) {
 		pge->init_room = f->readByte();
 		pge->room_location = f->readByte();
 		pge->init_flags = f->readByte();
-		pge->unk16 = f->readByte();
+		pge->colliding_icon_num = f->readByte();
 		pge->icon_num = f->readByte();
 		pge->object_id = f->readByte();
 		pge->skill = f->readByte();
@@ -490,11 +487,11 @@ void Resource::load_PGE(File *f) {
 
 void Resource::load_ANI(File *f) {
 	debug(DBG_RES, "Resource::load_ANI()");
-	int len = f->size() - 2;
-	_ani = (uint8 *)malloc(len);
+	int size = f->size() - 2;
+	_ani = (uint8 *)malloc(size);
 	assert(_ani);
 	f->seek(2);
-	f->read(_ani, len);
+	f->read(_ani, size);
 }
 
 void Resource::load_TBN(File *f) {

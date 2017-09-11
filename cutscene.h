@@ -22,6 +22,7 @@
 #include "intern.h"
 #include "graphics.h"
 
+struct Player;
 struct Resource;
 struct SystemStub;
 struct Video;
@@ -41,10 +42,10 @@ struct Cutscene {
 	static const uint16 _sinTable[];
 	static const uint8 _creditsData[];
 	static const uint16 _creditsCutSeq[];
-
-	Cutscene(Resource *res, SystemStub *stub, Video *vid, Version ver);
+	static const uint8 _musicTable[];
 
 	Graphics _gfx;
+	Player *_ply;
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
@@ -95,6 +96,8 @@ struct Cutscene {
 	uint8 _creditsTextPosY;
 	int16 _creditsTextCounter;
 	uint8 *_page0, *_page1, *_pageC;
+	
+	Cutscene(Player *player, Resource *res, SystemStub *stub, Video *vid, Version ver);
 	
 	void sync();
 	void copyPalette(const uint8 *pal, uint16 num);

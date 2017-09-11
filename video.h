@@ -51,6 +51,7 @@ struct Video {
 	uint8 _drawCharColor3;
 	uint8 *_screenBlocks;
 	bool _fullRefresh;
+	uint8 _shakeOffset;
 	
 	Video(Resource *res, SystemStub *stub);
 	~Video();

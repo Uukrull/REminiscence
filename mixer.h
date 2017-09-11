@@ -30,26 +30,33 @@ struct MixerChannel {
 	uint8 active;
 	uint8 volume;
 	MixerChunk chunk;
-	uint32 chunkPos;
-	uint32 chunkInc;
+	int chunkPos;
+	int chunkInc;
 };
 
 struct SystemStub;
 
 struct Mixer {
+	typedef void (*PremixHook)(void *userData, int8 *buf, int len);
+	
 	enum {
-		NUM_CHANNELS = 4
+		NUM_CHANNELS = 4,
+		FRAC_BITS = 12
 	};
 
 	void *_mutex;
 	SystemStub *_stub;
 	MixerChannel _channels[NUM_CHANNELS];
+	PremixHook _premixHook;
+	void *_premixHookData;
 
 	Mixer(SystemStub *stub);
 	void init();
 	void free();
+	void setPremixHook(PremixHook premixHook, void *userData);
 	void play(const MixerChunk *mc, uint16 freq, uint8 volume);
 	void stopAll();
+	uint32 getSampleRate() const;
 	void mix(int8 *buf, int len);
 
 	static void mixCallback(void *param, uint8 *buf, int len);
