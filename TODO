@@ -1,7 +1,9 @@
 
 TODO
   - code cleanup
-    * better localisation code
     * cleanup the mixer/sound/mod_player mess
     * split Game class
+  - improve music/sound quality
   - add support for MIDI music (maybe)
+  - move all the static data to an external file (maybe)
+  - handle .seq files (displayed in 'overlay' mode, like the 3DO version does) (maybe)

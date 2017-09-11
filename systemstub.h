@@ -39,6 +39,7 @@ struct PlayerInput {
 	bool space;
 	bool shift;
 	bool backspace;
+	bool escape;
 	
 	char lastChar;
 	
@@ -67,7 +68,7 @@ struct SystemStub {
 	virtual void setPaletteEntry(uint8 i, const Color *c) = 0;
 	virtual void getPaletteEntry(uint8 i, Color *c) = 0;
 	virtual void setOverscanColor(uint8 i) = 0;
-	virtual void copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) = 0;
+	virtual void copyRect(int16 x, int16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) = 0;
 	virtual void updateScreen(uint8 shakeOffset) = 0;
 
 	virtual void processEvents() = 0;

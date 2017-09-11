@@ -21,6 +21,7 @@
 
 #include "intern.h"
 #include "cutscene.h"
+#include "locale.h"
 #include "menu.h"
 #include "mixer.h"
 #include "mod_player.h"
@@ -37,10 +38,10 @@ struct Game {
 	typedef int (Game::*col_Callback2)(LivePGE *, int16, int16, int16);
 
 	enum {
-		CT_LEFT_ROOM  = 0xC0,
-		CT_RIGHT_ROOM = 0x80,
 		CT_UP_ROOM    = 0x00,
-		CT_DOWN_ROOM  = 0x40
+		CT_DOWN_ROOM  = 0x40,
+		CT_RIGHT_ROOM = 0x80,
+		CT_LEFT_ROOM  = 0xC0
 	};
 
 	static const Level _gameLevels[];
@@ -55,25 +56,17 @@ struct Game {
 	static const uint8 *_monsterListLevels[];
 	static const uint8 _monsterPals[4][32];
 	static const char *_monsterNames[];
-	static const uint8 _stringsTableFR[];
-	static const uint8 _stringsTableEN[];
-	static const uint8 _stringsTableDE[];
-	static const uint8 _stringsTableSP[];
-	static const char *_textsTableFR[];
-	static const char *_textsTableEN[];
-	static const char *_textsTableDE[];
-	static const char *_textsTableSP[];
 	static const pge_OpcodeProc _pge_opcodeTable[];
 	static const uint8 _pge_modKeysTable[];
 	
 	Cutscene _cut;
+	Locale _loc;
 	Menu _menu;
 	Mixer _mix;
 	Player _ply;
 	Resource _res;
 	Video _vid;
 	SystemStub *_stub;
-	Version _ver;
 	const char *_savePath;
 	
 	const uint8 *_stringsTable;
@@ -118,6 +111,7 @@ struct Game {
 	void drawCurrentInventoryItem();
 	void printLevelCode();
 	void showFinalScore();
+	bool handleConfigPanel();
 	bool handleContinueAbort();
 	void printSaveStateCompleted();
 	void drawLevelTexts();
@@ -132,6 +126,7 @@ struct Game {
 	void drawCharacter(const uint8 *dataPtr, int16 x, int16 y, uint8 a, uint8 b, uint8 flags);
 	uint8 *loadBankData(uint16 MbkEntryNum);
 	int loadMonsterSprites(LivePGE *pge);
+	void playSound(uint8 sfxId, uint8 softVol);
 	uint16 getRandomNumber();
 	void changeLevel();
 	uint16 getLineLength(const uint8 *str);
@@ -139,6 +134,7 @@ struct Game {
 	uint8 *findBankData(uint16 entryNum);
 
 	
+	// pieges
 	bool _pge_playAnimSound;
 	GroupPGE _pge_groups[256];
 	GroupPGE *_pge_groupsTable[256];
@@ -217,10 +213,10 @@ struct Game {
 	int pge_o_unk0x2D(ObjectOpcodeArgs *args);
 	int pge_op_nop(ObjectOpcodeArgs *args);
 	int pge_op_pickupObject(ObjectOpcodeArgs *args);
-	int pge_o_unk0x30(ObjectOpcodeArgs *args);
+	int pge_op_addItemToInventory(ObjectOpcodeArgs *args);
 	int pge_op_copyPiege(ObjectOpcodeArgs *args);
 	int pge_op_canUseCurrentInventoryItem(ObjectOpcodeArgs *args);
-	int pge_o_unk0x33(ObjectOpcodeArgs *args);
+	int pge_op_removeItemFromInventory(ObjectOpcodeArgs *args);
 	int pge_o_unk0x34(ObjectOpcodeArgs *args);
 	int pge_op_isInpMod(ObjectOpcodeArgs *args);
 	int pge_o_unk0x36(ObjectOpcodeArgs *args);
@@ -252,7 +248,7 @@ struct Game {
 	int pge_o_unk0x50(ObjectOpcodeArgs *args);
 	int pge_o_unk0x52(ObjectOpcodeArgs *args);
 	int pge_o_unk0x53(ObjectOpcodeArgs *args);
-	int pge_o_unk0x54(ObjectOpcodeArgs *args);
+	int pge_op_isPiegeNear(ObjectOpcodeArgs *args);
 	int pge_op_setLife(ObjectOpcodeArgs *args);
 	int pge_op_incLife(ObjectOpcodeArgs *args);
 	int pge_op_setPiegeDefaultAnim(ObjectOpcodeArgs *args);
@@ -264,7 +260,7 @@ struct Game {
 	int pge_o_unk0x5D(ObjectOpcodeArgs *args);
 	int pge_o_unk0x5E(ObjectOpcodeArgs *args);
 	int pge_o_unk0x5F(ObjectOpcodeArgs *args);
-	int pge_o_unk0x60(ObjectOpcodeArgs *args);
+	int pge_op_findAndCopyPiege(ObjectOpcodeArgs *args);
 	int pge_op_isInRandomRange(ObjectOpcodeArgs *args);
 	int pge_o_unk0x62(ObjectOpcodeArgs *args);
 	int pge_o_unk0x63(ObjectOpcodeArgs *args);
@@ -328,6 +324,7 @@ struct Game {
 	int pge_ZOrderByNumber(LivePGE *pge1, LivePGE *pge2, uint8 comp, uint8 comp2);
 	
 	
+	// collision
 	CollisionSlot _col_slots[256];
 	uint8 _col_curPos;
 	CollisionSlot *_col_slotsTable[256];
@@ -335,7 +332,7 @@ struct Game {
 	CollisionSlot2 _col_slots2[256];
 	CollisionSlot2 *_col_slots2Cur;
 	CollisionSlot2 *_col_slots2Next;
-	uint8 _col_activeCollisionSlots[0x90]; // left, current, right
+	uint8 _col_activeCollisionSlots[0x30 * 3]; // left, current, right
 	uint8 _col_currentLeftRoom;
 	uint8 _col_currentRightRoom;
 	int16 _col_currentPiegeGridPosX;
@@ -362,26 +359,26 @@ struct Game {
 	int col_detectGunHitCallback3(LivePGE *pge1, LivePGE *pge2, int16 arg4, int16);
 	int col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 callback1, col_Callback2 callback2, int16 argA, int16 argC);
 
-	
-	void inp_handleSpecialKeys();
-	void inp_update();
-	
+
+	// input	
 	bool _inp_replay;
 	bool _inp_record;
 	File *_inp_demo;
-	
 
-	void snd_playSound(uint8 sfxId, uint8 softVol);
+	void inp_handleSpecialKeys();
+	void inp_update();
+	
+	
+	// save/load state
+	uint8 _stateSlot;
+	bool _validSaveState;
 	
 	void makeGameDemoName(char *buf);
 	void makeGameStateName(uint8 slot, char *buf);
 	void saveGameState(uint8 slot);
 	void loadGameState(uint8 slot);
 	void saveState(File *f);
-	void loadState(File *f);
-	
-	uint8 _stateSlot;
-	bool _validSaveState;
+	void loadState(File *f);	
 };
 
 #endif // __GAME_H__

@@ -31,6 +31,9 @@ Video::Video(Resource *res, SystemStub *stub)
 	_fullRefresh = true;
 	memset(_screenBlocks, 0, (GAMESCREEN_W / SCREENBLOCK_W) * (GAMESCREEN_H / SCREENBLOCK_H));
 	_shakeOffset = 0;
+	_charFrontColor = 0;
+	_charTransparentColor = 0;
+	_charShadowColor = 0;
 }
 
 Video::~Video() {
@@ -43,13 +46,14 @@ Video::~Video() {
 
 void Video::markBlockAsDirty(int16 x, int16 y, uint16 w, uint16 h) {
 	debug(DBG_VIDEO, "Video::markBlockAsDirty(%d, %d, %d, %d)", x, y, w, h);
-	assert(x >= 0 && x < GAMESCREEN_W && y >= 0 && y < GAMESCREEN_H);
-	uint8 bx1 = x / SCREENBLOCK_W;
-	uint8 by1 = y / SCREENBLOCK_H;
-	uint8 bx2 = (x + w - 1) / SCREENBLOCK_W;
-	uint8 by2 = (y + h - 1) / SCREENBLOCK_H;
+	assert(x >= 0 && x + w <= GAMESCREEN_W && y >= 0 && y + h <= GAMESCREEN_H);
+	int bx1 = x / SCREENBLOCK_W;
+	int by1 = y / SCREENBLOCK_H;
+	int bx2 = (x + w - 1) / SCREENBLOCK_W;
+	int by2 = (y + h - 1) / SCREENBLOCK_H;
+	assert(bx2 < GAMESCREEN_W / SCREENBLOCK_W && by2 < GAMESCREEN_H / SCREENBLOCK_H);
 	for (; by1 <= by2; ++by1) {
-		for (uint8 i = bx1; i <= bx2; ++i) {
+		for (int i = bx1; i <= bx2; ++i) {
 			_screenBlocks[by1 * (GAMESCREEN_W / SCREENBLOCK_W) + i] = 2;
 		}
 	}
@@ -145,9 +149,9 @@ void Video::setPaletteSlotLE(int palSlot, const uint8 *palData) {
 	}
 }
 
-void Video::setPalette0xE() {
-	debug(DBG_VIDEO, "Video::setPalette0xE()");
-	const uint8 *p = _palSlot0xE;
+void Video::setTextPalette() {
+	debug(DBG_VIDEO, "Video::setTextPalette()");
+	const uint8 *p = _textPal;
 	for (int i = 0; i < 16; ++i) {
 		uint16 color = READ_LE_UINT16(p); p += 2;
 		Color c;
@@ -248,7 +252,7 @@ void Video::setLevelPalettes() {
 	setPaletteSlotBE(0xA, _unkPalSlot2);
 	setPaletteSlotBE(0xB, _mapPalSlot4);
 	// slots 0xC and 0xD are cutscene palettes
-	setPalette0xE(); // text palette
+	setTextPalette();
 }
 
 void Video::drawSpriteSub1(const uint8 *src, uint8 *dst, int pitch, int h, int w, uint8 colMask) {
@@ -329,8 +333,8 @@ void Video::drawSpriteSub6(const uint8 *src, uint8 *dst, int pitch, int h, int w
 	}
 }
 
-void Video::drawChar(char c, int16 y, int16 x) {
-	debug(DBG_VIDEO, "Video::drawChar('%c', %d, %d)", c, y, x);
+void Video::drawChar(uint8 c, int16 y, int16 x) {
+	debug(DBG_VIDEO, "Video::drawChar(0x%X, %d, %d)", c, y, x);
 	y *= 8;
 	x *= 8;
 	const uint8 *src = _res->_fnt + (c - 32) * 32;
@@ -340,26 +344,26 @@ void Video::drawChar(char c, int16 y, int16 x) {
 			uint8 c1 = (*src & 0xF0) >> 4;
 			uint8 c2 = (*src & 0x0F) >> 0;
 			++src;
-			
+						
 			if (c1 != 0) {
 				if (c1 != 2) {
-					*dst = _drawCharColor1;
+					*dst = _charFrontColor;
 				} else {
-					*dst = _drawCharColor3;
+					*dst = _charShadowColor;
 				}
-			} else if (_drawCharColor2 != 0xFF) {
-				*dst = _drawCharColor2;
+			} else if (_charTransparentColor != 0xFF) {
+				*dst = _charTransparentColor;
 			}
 			++dst;
 			
 			if (c2 != 0) {
 				if (c2 != 2) {
-					*dst = _drawCharColor1;
+					*dst = _charFrontColor;
 				} else {
-					*dst = _drawCharColor3;
+					*dst = _charShadowColor;
 				}
-			} else if (_drawCharColor2 != 0xFF) {
-				*dst = _drawCharColor2;
+			} else if (_charTransparentColor != 0xFF) {
+				*dst = _charTransparentColor;
 			}
 			++dst;
 		}

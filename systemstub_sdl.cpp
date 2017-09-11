@@ -47,7 +47,7 @@ struct SystemStub_SDL : SystemStub {
 	virtual void setPaletteEntry(uint8 i, const Color *c);
 	virtual void getPaletteEntry(uint8 i, Color *c);
 	virtual void setOverscanColor(uint8 i);
-	virtual void copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch);
+	virtual void copyRect(int16 x, int16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch);
 	virtual void updateScreen(uint8 shakeOffset);
 	virtual void processEvents();
 	virtual void sleep(uint32 duration);
@@ -72,6 +72,7 @@ SystemStub *SystemStub_SDL_create() {
 
 void SystemStub_SDL::init(const char *title, uint16 w, uint16 h) {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK);
+	atexit(SDL_Quit);
 	SDL_ShowCursor(SDL_DISABLE);
 	SDL_WM_SetCaption(title, NULL);
 	memset(&_pi, 0, sizeof(_pi));
@@ -85,7 +86,7 @@ void SystemStub_SDL::init(const char *title, uint16 w, uint16 h) {
 	}
 	memset(_offscreen, 0, size_offscreen);
 	_fullscreen = false;
-	_scaler = 1;
+	_scaler = 2;
 	memset(_pal, 0, sizeof(_pal));
 	prepareGfxMode();
 	_joystick = NULL;
@@ -99,7 +100,6 @@ void SystemStub_SDL::destroy() {
 	if (SDL_JoystickOpened(0)) {
 		SDL_JoystickClose(_joystick);
 	}
-	SDL_Quit();
 }
 
 void SystemStub_SDL::setPalette(const uint8 *pal, uint16 n) {
@@ -130,13 +130,31 @@ void SystemStub_SDL::setOverscanColor(uint8 i) {
 	_overscanColor = i;
 }
 
-void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
+void SystemStub_SDL::copyRect(int16 x, int16 y, uint16 w, uint16 h, const uint8 *buf, uint32 pitch) {
 	if (_numBlitRects >= MAX_BLIT_RECTS) {
 		warning("SystemStub_SDL::copyRect() Too many blit rects, you may experience graphical glitches");
-	} else {
-		assert(x + w <= _screenW && y + h <= _screenH);
+	} else {		
+		// extend the dirty region by 1 pixel for scalers accessing 'outer' pixels
+		--x;
+		--y;
+		w += 2;
+		h += 2;
+		
+		if (x < 0) {
+			x = 0;
+		}
+		if (y < 0) {
+			y = 0;
+		}
+		if (x + w > _screenW) {
+			w = _screenW - x;
+		}
+		if (y + h > _screenH) {
+			h = _screenH - y;
+		}
 
 		SDL_Rect *br = &_blitRects[_numBlitRects];
+		
 		br->x = x;
 		br->y = y;
 		br->w = w;
@@ -159,20 +177,21 @@ void SystemStub_SDL::copyRect(uint16 x, uint16 y, uint16 w, uint16 h, const uint
 }
 
 void SystemStub_SDL::updateScreen(uint8 shakeOffset) {
+	const int mul = _scalers[_scaler].factor;
 	if (shakeOffset == 0) {
 		for (int i = 0; i < _numBlitRects; ++i) {
 			SDL_Rect *br = &_blitRects[i];
-			int16 dx = br->x * _scalers[_scaler].factor;
-			int16 dy = br->y * _scalers[_scaler].factor;
+			int16 dx = br->x * mul;
+			int16 dy = br->y * mul;
 			SDL_LockSurface(_sclscreen);
 			uint16 *dst = (uint16 *)_sclscreen->pixels + dy * _sclscreen->pitch / 2 + dx;
 			const uint16 *src = (uint16 *)_offscreen + (br->y + 1) * _screenW + (br->x + 1);
 			(*_scalers[_scaler].proc)(dst, _sclscreen->pitch, src, _screenW, br->w, br->h);
 			SDL_UnlockSurface(_sclscreen);
-			br->x *= _scalers[_scaler].factor;
-			br->y *= _scalers[_scaler].factor;
-			br->w *= _scalers[_scaler].factor;
-			br->h *= _scalers[_scaler].factor;
+			br->x *= mul;
+			br->y *= mul;
+			br->w *= mul;
+			br->h *= mul;
 			SDL_BlitSurface(_sclscreen, br, _screen, br);
 		}
 		SDL_UpdateRects(_screen, _numBlitRects, _blitRects);
@@ -190,24 +209,24 @@ void SystemStub_SDL::updateScreen(uint8 shakeOffset) {
 		SDL_Rect bsr, bdr;
 		bdr.x = 0;
 		bdr.y = 0;
-		bdr.w = _screenW * _scalers[_scaler].factor;
-		bdr.h = shakeOffset * _scalers[_scaler].factor;
+		bdr.w = _screenW * mul;
+		bdr.h = shakeOffset * mul;
 		SDL_FillRect(_screen, &bdr, _pal[_overscanColor]);
 		
 		bsr.x = 0;
 		bsr.y = 0;
-		bsr.w = _screenW * _scalers[_scaler].factor;
-		bsr.h = (_screenH - shakeOffset) * _scalers[_scaler].factor;
+		bsr.w = _screenW * mul;
+		bsr.h = (_screenH - shakeOffset) * mul;
 		bdr.x = 0;
-		bdr.y = shakeOffset * _scalers[_scaler].factor;
+		bdr.y = shakeOffset * mul;
 		bdr.w = bsr.w;
 		bdr.h = bsr.h;
 		SDL_BlitSurface(_sclscreen, &bsr, _screen, &bdr);
 
 		bdr.x = 0;
 		bdr.y = 0;
-		bdr.w = _screenW * _scalers[_scaler].factor;
-		bdr.h = _screenH * _scalers[_scaler].factor;
+		bdr.w = _screenW * mul;
+		bdr.h = _screenH * mul;
 		SDL_UpdateRects(_screen, 1, &bdr);
 	}
 	_numBlitRects = 0;
@@ -324,6 +343,9 @@ void SystemStub_SDL::processEvents() {
 			case SDLK_RETURN:
 				_pi.enter = false;
 				break;
+			case SDLK_ESCAPE:
+				_pi.escape = false;
+				break;
 			default:
 				break;
 			}
@@ -393,6 +415,8 @@ void SystemStub_SDL::processEvents() {
 			case SDLK_RETURN:
 				_pi.enter = true;
 				break;
+			case SDLK_ESCAPE:
+				_pi.escape = true;
 			default:
 				break;
 			}

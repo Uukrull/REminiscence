@@ -19,7 +19,6 @@
 #include "unpack.h"
 
 
-
 static int rcr(UnpackCtx *uc, int CF) {
 	int rCF = (uc->chk & 1);
 	uc->chk >>= 1;

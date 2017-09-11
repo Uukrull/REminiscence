@@ -21,6 +21,7 @@
 
 #include "intern.h"
 
+struct Locale;
 struct Player;
 struct Resource;
 struct SystemStub;
@@ -32,7 +33,6 @@ struct Menu {
 		MENU_OPTION_ITEM_SKILL,
 		MENU_OPTION_ITEM_PASSWORD,
 		MENU_OPTION_ITEM_INFO,
-		MENU_OPTION_ITEM_DEMO,
 		MENU_OPTION_ITEM_QUIT
 	};
 
@@ -40,17 +40,13 @@ struct Menu {
 		EVENTS_DELAY = 80
 	};
 
-	static const char *_textOptionsFR[];
-	static const char *_textOptionsEN[];
-	static const char *_textOptionsDE[];
-	static const char *_textOptionsSP[];
 	static const char *_passwords[8][3];
 	
+	Locale *_loc;
 	Player *_ply;
 	Resource *_res;
 	SystemStub *_stub;
 	Video *_vid;
-	Version _ver;
 	
 	const char **_textOptions;
 	uint8 _charVar1;
@@ -59,7 +55,7 @@ struct Menu {
 	uint8 _charVar4;
 	uint8 _charVar5;
 	
-	Menu(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver);
+	Menu(Locale *loc, Player *ply, Resource *res, SystemStub *stub, Video *vid);
 
 	void drawString(const char *str, int16 y, int16 x, uint8 color);
 	void drawString2(const char *str, int16 y, int16 x);

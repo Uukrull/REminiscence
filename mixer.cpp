@@ -20,17 +20,6 @@
 #include "systemstub.h"
 
 
-static int8 addclamp(int a, int b) {
-	int add = a + b;
-	if (add < -128) {
-		add = -128;
-	}
-	else if (add > 127) {
-		add = 127;
-	}
-	return (int8)add;
-}
-
 Mixer::Mixer(SystemStub *stub) 
 	: _stub(stub) {
 }
@@ -113,12 +102,23 @@ void Mixer::mix(int8 *buf, int len) {
 				int a0 = (1 << FRAC_BITS) - a1;
 				int8 b = (b0 * a0 + b1 * a1) >> FRAC_BITS;
 				// set volume and clamp
-				buf[pos] = addclamp(buf[pos], b * ch->volume / 64);
+				addclamp(buf[pos], b * ch->volume / Mixer::MAX_VOLUME);
 				
 				ch->chunkPos += ch->chunkInc;
 			}
 		}
 	}
+}
+
+void Mixer::addclamp(int8& a, int b) {
+	int add = a + b;
+	if (add < -128) {
+		add = -128;
+	}
+	else if (add > 127) {
+		add = 127;
+	}
+	a = add;
 }
 
 void Mixer::mixCallback(void *param, uint8 *buf, int len) {

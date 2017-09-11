@@ -26,7 +26,7 @@
 Player::Player(Mixer *mixer, const char *dataPath)
 	: _playing(false), _mix(mixer), _dataPath(dataPath) {
 	for (int i = 0; i < 64; ++i) {
-		_vibratoSineWaveform[i] = (uint8)(sin(i * 2 * 3.14159265358979323846 / 64) * 255);
+		_vibratoSineWaveform[i] = (uint8)(sin(i * 2 * M_PI / 64) * 255);
 	}
 }
 
@@ -394,7 +394,7 @@ void Player::handleEffect(int trackNum, bool tick) {
 			}
 			break;
 		default:
-			warning("unhandled extended effect 0x%X params=0x%X", effectX, effectY);
+			warning("Unhandled extended effect 0x%X params=0x%X", effectX, effectY);
 			break;
 		}
 		break;
@@ -408,7 +408,7 @@ void Player::handleEffect(int trackNum, bool tick) {
 		}
 		break;		
 	default:
-		warning("unhandled effect 0x%X params=0x%X", effectNum, effectXY);
+		warning("Unhandled effect 0x%X params=0x%X", effectNum, effectXY);
 		break;
 	}
 }
@@ -444,17 +444,6 @@ void Player::handleTick() {
 		debug(DBG_MOD, "Player::handleEffect() _currentPatternOrder == _modInfo.numPatterns");
 		_playing = false;
 	}	
-}
-
-static void addclamp(int8& a, int b) {
-	int add = a + b;
-	if (add < -128) {
-		add = -128;
-	}
-	else if (add > 127) {
-		add = 127;
-	}
-	a = add;
 }
 
 void Player::mixSamples(int8 *buf, int samplesLen) {
@@ -493,11 +482,11 @@ void Player::mixSamples(int8 *buf, int samplesLen) {
 					int a1 = pos & ((1 << FRAC_BITS) - 1);
 					int a0 = (1 << FRAC_BITS) - a1;
 					int b = (b0 * a0 + b1 * a1) >> FRAC_BITS;
-					addclamp(*mixbuf++, b * tk->volume / 64);
+					Mixer::addclamp(*mixbuf++, b * tk->volume / 64);
 					pos += deltaPos;
 				}
 			}
-			tk->pos = pos;			
+			tk->pos = pos;
      	} 
 	}
 }

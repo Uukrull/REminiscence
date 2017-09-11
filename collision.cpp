@@ -22,8 +22,8 @@
 
 void Game::col_prepareRoomState() {
 	memset(_col_activeCollisionSlots, 0xFF, sizeof(_col_activeCollisionSlots));
-	_col_currentLeftRoom = _res._ctData[0xC0 + _currentRoom];
-	_col_currentRightRoom = _res._ctData[0x80 + _currentRoom];
+	_col_currentLeftRoom = _res._ctData[CT_LEFT_ROOM + _currentRoom];
+	_col_currentRightRoom = _res._ctData[CT_RIGHT_ROOM + _currentRoom];
 	for (int i = 0; i != _col_curPos; ++i) {
 		CollisionSlot *_di = _col_slotsTable[i];
 		uint8 room = _di->ct_pos / 64;
@@ -112,19 +112,19 @@ uint16 Game::col_getGridPos(LivePGE *pge, int16 dx) {
 	if (c < 0) return 0xFFFF;
 	
 	if (x < 0) {
-		c = _res._ctData[0xC0 + c]; // left room
+		c = _res._ctData[CT_LEFT_ROOM + c];
 		if (c < 0) return 0xFFFF;
 		x += 256;
 	} else if (x >= 256) {
-		c = _res._ctData[0x80 + c]; // right room
+		c = _res._ctData[CT_RIGHT_ROOM + c];
 		if (c < 0) return 0xFFFF;
 		x -= 256;
 	} else if (y < 0) {
-		c = _res._ctData[0x00 + c]; // top room
+		c = _res._ctData[CT_UP_ROOM + c];
 		if (c < 0) return 0xFFFF;
 		y += 216;
 	} else if (y >= 216) {
-		c = _res._ctData[0x40 + c]; // bottom room
+		c = _res._ctData[CT_DOWN_ROOM + c];
 		if (c < 0) return 0xFFFF;
 		y -= 216;
 	}
@@ -155,33 +155,33 @@ int16 Game::col_getGridData(LivePGE *pge, int16 dy, int16 dx) {
 	const int8 *room_ct_data;
 	int8 next_room;
 	if (pge_grid_x < 0) {
-		room_ct_data = &_res._ctData[0xC0];
+		room_ct_data = &_res._ctData[CT_LEFT_ROOM];
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
 		room_ct_data += pge_grid_x + 0x10 + pge_grid_y * 16 + next_room * 0x70;
-		return (int16)room_ct_data[0x40];
+		return (int16)room_ct_data[CT_DOWN_ROOM];
 	} else if (pge_grid_x >= 16) {
-		room_ct_data = &_res._ctData[0x80];
+		room_ct_data = &_res._ctData[CT_RIGHT_ROOM];
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
 		room_ct_data += pge_grid_x - 0x10 + pge_grid_y * 16 + next_room * 0x70;
-		return (int16)room_ct_data[0x80];
+		return (int16)room_ct_data[CT_RIGHT_ROOM];
 	} else if (pge_grid_y < 1) {
-		room_ct_data = &_res._ctData[0x00];
+		room_ct_data = &_res._ctData[CT_UP_ROOM];
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
 		room_ct_data += pge_grid_x + (pge_grid_y + 6) * 16 + next_room * 0x70;
 		return (int16)room_ct_data[0x100];
 	} else if (pge_grid_y >= 7) {
-		room_ct_data = &_res._ctData[0x40];
+		room_ct_data = &_res._ctData[CT_DOWN_ROOM];
 		next_room = room_ct_data[pge->room_location];
 		if (next_room < 0) return 1;
 		room_ct_data += pge_grid_x + (pge_grid_y - 6) * 16 + next_room * 0x70;
-		return (int16)room_ct_data[0xC0];
+		return (int16)room_ct_data[CT_LEFT_ROOM];
 	} else {
 		room_ct_data = &_res._ctData[0x100];
 		room_ct_data += pge_grid_x + pge_grid_y * 16 + pge->room_location * 0x70;
-		return (int16)room_ct_data[0x00];
+		return (int16)room_ct_data[CT_UP_ROOM];
 	}
 }
 
@@ -260,12 +260,12 @@ int16 Game::col_detectHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 ca
 		}
 		while (varA <= thr) {
 			if (grid_pos_x < 0) {
-				pge_room = _res._ctData[0xC0 + pge_room];
+				pge_room = _res._ctData[CT_LEFT_ROOM + pge_room];
 				if (pge_room < 0) break;
 				grid_pos_x += 0x10;
 			}
 			if (grid_pos_x >= 0x10) {
-				pge_room = _res._ctData[0x80 + pge_room];
+				pge_room = _res._ctData[CT_RIGHT_ROOM + pge_room];
 				if (pge_room < 0) break;
 				grid_pos_x -= 0x10;
 			}
@@ -484,12 +484,12 @@ int Game::col_detectGunHit(LivePGE *pge, int16 arg2, int16 arg4, col_Callback1 c
 		}
 		while (varA <= thr) {
 			if (grid_pos_x < 0) {
-				pge_room = _res._ctData[0xC0 + pge_room];
+				pge_room = _res._ctData[CT_LEFT_ROOM + pge_room];
 				if (pge_room < 0) return 0;
 				grid_pos_x += 0x10;
 			}
 			if (grid_pos_x >= 0x10) {
-				pge_room = _res._ctData[0x80 + pge_room];
+				pge_room = _res._ctData[CT_RIGHT_ROOM + pge_room];
 				if (pge_room < 0) return 0;
 				grid_pos_x -= 0x10;
 			}

@@ -31,6 +31,10 @@
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define ARRAYSIZE(a) (sizeof(a)/sizeof(a[0]))
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 template<typename T>
 inline void SWAP(T &a, T &b) {
 	T tmp = a; 
@@ -80,9 +84,7 @@ struct InitPGE {
 	uint8 mirror_x;
 	uint8 flags;
 	uint8 unk1C; // collidable, collision_data_len
-	uint8 unk1D;
 	uint8 text_num;
-	uint8 unk1F;
 };
 
 struct LivePGE {

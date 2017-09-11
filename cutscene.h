@@ -38,8 +38,6 @@ struct Cutscene {
 	static const OpcodeStub _opcodeTable[];
 	static const char *_namesTable[];
 	static const uint16 _offsetsTable[];
-	static const uint16 _cosTable[];
-	static const uint16 _sinTable[];
 	static const uint8 _creditsData[];
 	static const uint16 _creditsCutSeq[];
 	static const uint8 _musicTable[];
@@ -54,6 +52,7 @@ struct Cutscene {
 	uint16 _id;
 	uint16 _deathCutsceneId;
 	bool _interrupted;
+	bool _stop;
 	uint8 *_polPtr;
 	uint8 *_cmdPtr;
 	uint8 *_cmdPtrBak;

@@ -107,5 +107,4 @@ struct Player {
 	static void mixCallback(void *param, int8 *buf, int len);
 };
 
-
-#endif
+#endif // __MOD_PLAYER_H__

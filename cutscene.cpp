@@ -16,15 +16,21 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include <cmath>
 #include "mod_player.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "video.h"
 #include "cutscene.h"
 
+static uint16 _cosTable[360], _sinTable[360];
 
 Cutscene::Cutscene(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
 	: _ply(ply), _res(res), _stub(stub), _vid(vid), _ver(ver) {
+	for (int i = 0; i < 360; ++i) {
+		_cosTable[i] = (uint16)(cos(i * M_PI / 180) * 256);
+		_sinTable[i] = (uint16)(sin(i * M_PI / 180) * 256);
+	}
 }
 
 void Cutscene::sync() {
@@ -846,7 +852,7 @@ void Cutscene::op_handleKeys() {
 	if (n < 0) {
 		n = -n - 1;
 		if (_varKey == 0) {
-			_interrupted = true;
+			_stop = true;
 			return;
 		}
 		if (_varKey != n) {
@@ -880,7 +886,7 @@ void Cutscene::mainLoop(uint16 offset) {
 	for (int i = 0; i < 0x20; ++i) {
 		_stub->setPaletteEntry(0xC0 + i, &c);
 	}
-	if (_id != 0x4A) {
+	if (_id != 0x4A && !_creditsSequence) {
 		_ply->startSong(_musicTable[_id]);
 	}
 	_newPal = false;
@@ -895,7 +901,7 @@ void Cutscene::mainLoop(uint16 offset) {
 	_polPtr = _res->_pol;
 	debug(DBG_CUT, "_startOffset = %d offset = %d", _startOffset, offset);
 
-	while (!_stub->_pi.quit && !_interrupted) {
+	while (!_stub->_pi.quit && !_interrupted && !_stop) {
 		uint8 op = CMD_fetchByte();
 		debug(DBG_CUT, "Cutscene::play() opcode = 0x%X (%d)", op, (op >> 2));
 		if (op & 0x80) {
@@ -947,6 +953,7 @@ void Cutscene::prepare() {
 	_stub->_pi.space = false;
 	_stub->_pi.shift = false;
 	_interrupted = false;
+	_stop = false;
 }
 
 void Cutscene::startCredits() {
@@ -958,14 +965,14 @@ void Cutscene::startCredits() {
 	_varText = 0;
 	_textUnk2 = 0;
 	_creditsTextCounter = 0;
-	// XXX
-	prepare();
+	_interrupted = false;
 	const uint16 *cut_seq = _creditsCutSeq;
 	while (!_stub->_pi.quit && !_interrupted) {
 		uint16 cut_id = *cut_seq++;
 		if (cut_id == 0xFFFF) {
 			break;
 		}
+		prepare();
 		uint16 cutName = _offsetsTable[cut_id * 2 + 0];
 		uint16 cutOff  = _offsetsTable[cut_id * 2 + 1];
 		load(cutName);
@@ -990,6 +997,8 @@ void Cutscene::play() {
 			}
 		}
 		_vid->fullRefresh();
-		_id = 0xFFFF;
+		if (_id != 0x3D) {
+			_id = 0xFFFF;
+		}
 	}
 }

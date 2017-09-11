@@ -1,6 +1,6 @@
 
 REminiscence README
-Release version: 0.1.5 (Apr 5 2005)
+Release version: 0.1.6 (Jun 5 2005)
 -------------------------------------------------------------------------------
 
 About:
@@ -8,15 +8,12 @@ About:
 
 REminiscence is a re-implementation of the engine used in the game Flashback
 made by Delphine Software and released in 1992. More informations about the
-game can found on mobygames [1] and also here [2].
-
-Please be aware that, currently, this implementation is not yet complete.
+game can be found on mobygames [1] and also here [2].
 
 Supported Versions:
 -------------------
 
-Currently, only the PC DOS version is supported. French and English have been
-tested successfully.
+Currently, only the PC DOS version is supported.
 
 Compiling:
 ----------
@@ -55,6 +52,7 @@ Here are the various in game hotkeys :
     Arrow Keys      move Conrad
     Enter           use the current inventory object 
     Shift           talk / use / run / shoot
+    Escape          display the options
     Backspace       display the inventory
     Alt Enter       toggle windowed/fullscreen mode
     Alt + and -     change video scaler
@@ -68,7 +66,7 @@ Credits:
 --------
 
 Delphine Software, obviously, for making another great game.
-Yaz0r, Pixel and gawd for sharing some informations they gathered on the game.
+Yaz0r, Pixel and gawd for sharing information they gathered on the game.
 
 Contact:
 --------
@@ -78,5 +76,5 @@ Gregory Montoir, cyx@users.sourceforge.net
 URLs:
 -----
 
-[1] http://www.mobygames.com/game/sheet/p,2/gameId,555/
+[1] http://www.mobygames.com/game/flashback-the-quest-for-identity
 [2] http://ramal.free.fr/fb_en.htm

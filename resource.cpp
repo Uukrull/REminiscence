@@ -457,7 +457,7 @@ void Resource::load_PGE(File *f) {
 	int len = f->size() - 2;
 	_pgeNum = f->readUint16LE();
 	memset(_pgeInit, 0, sizeof(_pgeInit));
-	debug(DBG_RES, "len = %d _pgeNum = %d mod = %d", len, _pgeNum, len % 0x20);
+	debug(DBG_RES, "len = %d _pgeNum = %d", len, _pgeNum);
 	for (uint16 i = 0; i < _pgeNum; ++i) {
 		InitPGE *pge = &_pgeInit[i];
 		pge->type = f->readUint16LE();
@@ -479,9 +479,9 @@ void Resource::load_PGE(File *f) {
 		pge->mirror_x = f->readByte();
 		pge->flags = f->readByte();
 		pge->unk1C = f->readByte();
-		pge->unk1D = f->readByte();
+		f->readByte();
 		pge->text_num = f->readByte();
-		pge->unk1F = f->readByte();
+		f->readByte();
 	}
 }
 

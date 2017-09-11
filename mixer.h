@@ -41,7 +41,8 @@ struct Mixer {
 	
 	enum {
 		NUM_CHANNELS = 4,
-		FRAC_BITS = 12
+		FRAC_BITS = 12,
+		MAX_VOLUME = 64
 	};
 
 	void *_mutex;
@@ -59,6 +60,7 @@ struct Mixer {
 	uint32 getSampleRate() const;
 	void mix(int8 *buf, int len);
 
+	static void addclamp(int8 &a, int b);
 	static void mixCallback(void *param, uint8 *buf, int len);
 };
 

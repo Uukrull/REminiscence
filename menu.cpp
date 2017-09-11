@@ -24,24 +24,66 @@
 #include "menu.h"
 
 
-Menu::Menu(Player *ply, Resource *res, SystemStub *stub, Video *vid, Version ver)
-	: _ply(ply), _res(res), _stub(stub), _vid(vid), _ver(ver) {
-	switch (_ver) {
-	case VER_FR:
-		_textOptions = _textOptionsFR;
+Menu::Menu(Locale *loc, Player *ply, Resource *res, SystemStub *stub, Video *vid)
+	: _loc(loc), _ply(ply), _res(res), _stub(stub), _vid(vid) {
+}
+
+void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
+	debug(DBG_MENU, "Menu::drawString()");
+	uint8 v1b = _vid->_charFrontColor;
+	uint8 v2b = _vid->_charTransparentColor;
+	uint8 v3b = _vid->_charShadowColor;
+	switch (color) {
+	case 0:
+		_vid->_charFrontColor = _charVar1;
+		_vid->_charTransparentColor = _charVar2;
+		_vid->_charShadowColor = _charVar2;
 		break;
-	case VER_US:
-		_textOptions = _textOptionsEN;
+	case 1:
+		_vid->_charFrontColor = _charVar2;
+		_vid->_charTransparentColor = _charVar1;
+		_vid->_charShadowColor = _charVar1;
 		break;
-	case VER_DE:
-		_textOptions = _textOptionsDE;
+	case 2:
+		_vid->_charFrontColor = _charVar3;
+		_vid->_charTransparentColor = 0xFF;
+		_vid->_charShadowColor = _charVar1;
 		break;
-	case VER_SP:
-		_textOptions = _textOptionsSP;
+	case 3:
+		_vid->_charFrontColor = _charVar4;
+		_vid->_charTransparentColor = 0xFF;
+		_vid->_charShadowColor = _charVar1;
+		break;
+	case 4:
+		_vid->_charFrontColor = _charVar2;
+		_vid->_charTransparentColor = 0xFF;
+		_vid->_charShadowColor = _charVar1;
+		break;
+	case 5:
+		_vid->_charFrontColor = _charVar2;
+		_vid->_charTransparentColor = 0xFF;
+		_vid->_charShadowColor = _charVar5;
 		break;
 	}
-}
 	
+	drawString2(str, y, x);
+	
+	_vid->_charFrontColor = v1b;
+	_vid->_charTransparentColor = v2b;
+	_vid->_charShadowColor = v3b;
+}
+
+void Menu::drawString2(const char *str, int16 y, int16 x) {
+	debug(DBG_MENU, "Menu::drawString2()");
+	int len = 0;
+	while (*str) {
+		_vid->drawChar((uint8)*str, y, x + len);
+		++str;
+		++len;
+	}
+	_vid->markBlockAsDirty(x * 8, y * 8, len * 8, 8);
+}
+
 void Menu::loadPicture(const char *prefix) {
 	debug(DBG_MENU, "Menu::loadPicture('%s')", prefix);
 	_res->load_MAP_menu(prefix, _res->_memBuf);
@@ -56,66 +98,10 @@ void Menu::loadPicture(const char *prefix) {
 	_stub->setPalette(_res->_memBuf, 256);
 }
 
-void Menu::drawString(const char *str, int16 y, int16 x, uint8 color) {
-	debug(DBG_MENU, "Menu::drawString()");
-	uint8 v1b = _vid->_drawCharColor1;
-	uint8 v2b = _vid->_drawCharColor2;
-	uint8 v3b = _vid->_drawCharColor3;
-	switch (color) {
-	case 0:
-		_vid->_drawCharColor1 = _charVar1;
-		_vid->_drawCharColor2 = _charVar2;
-		_vid->_drawCharColor3 = _charVar2;
-		break;
-	case 1:
-		_vid->_drawCharColor1 = _charVar2;
-		_vid->_drawCharColor2 = _charVar1;
-		_vid->_drawCharColor3 = _charVar1;
-		break;
-	case 2:
-		_vid->_drawCharColor1 = _charVar3;
-		_vid->_drawCharColor2 = 0xFF;
-		_vid->_drawCharColor3 = _charVar1;
-		break;
-	case 3:
-		_vid->_drawCharColor1 = _charVar4;
-		_vid->_drawCharColor2 = 0xFF;
-		_vid->_drawCharColor3 = _charVar1;
-		break;
-	case 4:
-		_vid->_drawCharColor1 = _charVar2;
-		_vid->_drawCharColor2 = 0xFF;
-		_vid->_drawCharColor3 = _charVar1;
-		break;
-	case 5:
-		_vid->_drawCharColor1 = _charVar2;
-		_vid->_drawCharColor2 = 0xFF;
-		_vid->_drawCharColor3 = _charVar5;
-		break;
-	}
-	
-	drawString2(str, y, x);
-	
-	_vid->_drawCharColor1 = v1b;
-	_vid->_drawCharColor2 = v2b;
-	_vid->_drawCharColor3 = v3b;
-}
-
-void Menu::drawString2(const char *str, int16 y, int16 x) {
-	debug(DBG_MENU, "Menu::drawString2()");
-	int len = 0;
-	while (*str) {
-		_vid->drawChar(*str, y, x + len);
-		++str;
-		++len;
-	}	
-	_vid->markBlockAsDirty(x * 8, y * 8, len * 8, 8);
-}
-
 void Menu::handleInfoScreen() {
 	debug(DBG_MENU, "Menu::handleInfoScreen()");
 	_vid->fadeOut();
-	switch (_ver) {
+	switch (_loc->_ver) {
 	case VER_FR:
 		loadPicture("instru_f");
 		break;
@@ -143,12 +129,12 @@ void Menu::handleSkillScreen(uint8 &new_skill) {
 	_vid->fadeOut();
 	loadPicture("menu3");
 	_vid->fullRefresh();
-	drawString(_textOptions[6], 12, 4, 3);
+	drawString(_loc->get(Locale::LI_12_SKILL_LEVEL), 12, 4, 3);
 	int skill_level = new_skill;
 	do {
-		drawString(_textOptions[7], 15, 14, option_colors[skill_level][0]);
-		drawString(_textOptions[8], 17, 14, option_colors[skill_level][1]);
-		drawString(_textOptions[9], 19, 14, option_colors[skill_level][2]);
+		drawString(_loc->get(Locale::LI_13_EASY), 15, 14, option_colors[skill_level][0]);
+		drawString(_loc->get(Locale::LI_14_NORMAL), 17, 14, option_colors[skill_level][1]);
+		drawString(_loc->get(Locale::LI_15_EXPERT), 19, 14, option_colors[skill_level][2]);
 
 		_vid->updateScreen();
 		_stub->sleep(EVENTS_DELAY);
@@ -182,21 +168,21 @@ void Menu::handleSkillScreen(uint8 &new_skill) {
 bool Menu::handlePasswordScreen(uint8 &new_skill, uint8 &new_level) {
 	debug(DBG_MENU, "Menu::handlePasswordScreen()");
 	_vid->fadeOut();
-	_vid->_drawCharColor3 = _charVar1;
-	_vid->_drawCharColor2 = 0xFF;
-	_vid->_drawCharColor1 = _charVar4;
+	_vid->_charShadowColor = _charVar1;
+	_vid->_charTransparentColor = 0xFF;
+	_vid->_charFrontColor = _charVar4;
 	_vid->fullRefresh();
 	char password[7];
 	int len = 0;
 	do {
 		loadPicture("menu2");
-		drawString2(_textOptions[10], 15, 3);
-		drawString2(_textOptions[11], 17, 3);
+		drawString2(_loc->get(Locale::LI_16_ENTER_PASSWORD1), 15, 3);
+		drawString2(_loc->get(Locale::LI_17_ENTER_PASSWORD2), 17, 3);
 
 		for (int i = 0; i < len; ++i) {
-			_vid->drawChar(password[i], 21, i + 15);
+			_vid->drawChar((uint8)password[i], 21, i + 15);
 		}
-		_vid->drawChar('_', 21, len + 15);
+		_vid->drawChar(0x20, 21, len + 15);
 
 		_vid->markBlockAsDirty(15 * 8, 21 * 8, (len + 1) * 8, 8);
 		_vid->updateScreen();
@@ -240,6 +226,11 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 	bool quit_loop = false;
 	int menu_entry = 0;
 	bool reinit_screen = true;
+	_charVar1 = 0;
+	_charVar2 = 0;
+	_charVar3 = 0;
+	_charVar4 = 0;
+	_charVar5 = 0;
 	_ply->startSong(1);
 	while (!quit_loop) {
 		if (reinit_screen) {
@@ -252,9 +243,9 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			reinit_screen = false;
 		}
 		int selected_menu_entry = -1;
-		for (int i = 0; i < 6; ++i) {
+		for (int i = 0; i < 5; ++i) {
 			int color = (i == menu_entry) ? 2 : 3;
-			drawString(_textOptions[i], 14 + i * 2, 20, color);
+			drawString(_loc->get(Locale::LI_07_START + i), 16 + i * 2, 20, color);
 		}
 
 		_vid->updateScreen();
@@ -266,12 +257,12 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			if (menu_entry != 0) {
 				--menu_entry;
 			} else {
-				menu_entry = 5;
+				menu_entry = 4;
 			}
 		}
 		if (_stub->_pi.dirMask & PlayerInput::DIR_DOWN) {
 			_stub->_pi.dirMask &= ~PlayerInput::DIR_DOWN;
-			if (menu_entry != 5) {
+			if (menu_entry != 4) {
 				++menu_entry;
 			} else {
 				menu_entry = 0;
@@ -302,9 +293,6 @@ bool Menu::handleTitleScreen(uint8 &new_skill, uint8 &new_level) {
 			case MENU_OPTION_ITEM_INFO:
 				handleInfoScreen();
 				reinit_screen = true;
-				break;
-			case MENU_OPTION_ITEM_DEMO:
-				warning("demo mode not implemented");
 				break;
 			case MENU_OPTION_ITEM_QUIT:
 				return false;
