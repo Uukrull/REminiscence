@@ -1,0 +1,69 @@
+/* REminiscence - Flashback interpreter
+ * Copyright (C) 2005 Gregory Montoir
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+
+#ifndef __MENU_H__
+#define __MENU_H__
+
+#include "intern.h"
+
+struct Resource;
+struct SystemStub;
+struct Video;
+
+struct Menu {
+	enum {
+		MENU_OPTION_ITEM_START = 0,
+		MENU_OPTION_ITEM_SKILL,
+		MENU_OPTION_ITEM_PASSWORD,
+		MENU_OPTION_ITEM_INFO,
+		MENU_OPTION_ITEM_DEMO,
+		MENU_OPTION_ITEM_QUIT
+	};
+
+	enum {
+		EVENTS_DELAY = 80
+	};
+
+	static const char *_textOptionsFR[];
+	static const char *_textOptionsEN[];
+	static const char *_passwords[8][3];
+
+	Menu(Resource *res, SystemStub *stub, Video *vid);
+	
+	Resource *_res;
+	SystemStub *_stub;
+	Video *_vid;
+	
+	const char **_textOptions;
+
+	uint8 _charVar1;
+	uint8 _charVar2;
+	uint8 _charVar3;
+	uint8 _charVar4;
+	uint8 _charVar5;
+
+	void drawString(const char *str, int16 y, int16 x, uint8 color);
+	void drawString2(const char *t, int16 y, int16 x);
+	void loadPicture(const char *prefix);
+	void handleInfoScreen();
+	void handleSkillScreen(int &new_skill);
+	int handlePasswordScreen(int &new_skill, int &new_level);
+	bool handleTitleScreen(int &new_skill, int &new_level);
+};
+
+#endif

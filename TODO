@@ -1,0 +1,15 @@
+
+TODO
+  - save/load state
+  - enable level switching
+  - implement the missing opcodes
+  - cutscenes (partly done)
+  - sound (partly done)
+  - smarter rendering code (ie. dirty blocks...) (partly done)
+  - continue/abort screen (rely on cutscene player)
+  - enum Piege flags
+  - music
+  - split code into more classes
+	* Collision: Game
+	* Piege: Game
+	* Game: Menu, Collision, Piege, SystemStub, Resource, Video
