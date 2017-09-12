@@ -1,6 +1,8 @@
 
-SDL_CFLAGS   := `sdl2-config --cflags`
-SDL_LIBS     := `sdl2-config --libs`
+#SDL_CFLAGS   := `sdl2-config --cflags`
+#SDL_LIBS     := `sdl2-config --libs`
+SDL_CFLAGS   := $(CFLAGS)
+SDL_LIBS     := -lSDL2
 
 MODPLUG_LIBS := -lmodplug
 TREMOR_LIBS  := -lvorbisidec -logg
